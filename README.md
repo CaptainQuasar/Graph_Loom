@@ -123,7 +123,7 @@ Multiple people can build a graph together without any shared server.
 
 1. Each person builds their subgraph independently and exports it as JSON
 2. One person (or everyone in turn) opens a shared base file and uses **⊕ Merge** to combine the JSONs
-3. Duplicates are automatically skipped — the merge is safe to run multiple times
+3. Duplicates are automatically skipped the merge is safe to run multiple times
 4. The merged graph is downloaded as HTML and reshared
 
 **Tips:**

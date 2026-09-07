@@ -327,4 +327,4 @@ The JSON file size grows with node descriptions and link details. Files stay und
 
 ## Upgrade Path
 
-Graph Canvas is the portable, single-file entry point. For larger investigations requiring persistent storage, SQL queries across the graph, structured import pipelines, and folder-based case management, the full **Graph Canvas Workstation** provides all of that as a local-first desktop application — same data format, direct import from any Graph Canvas JSON export.
+Graph Canvas is the portable, single-file entry point. For larger investigations requiring persistent storage, SQL queries across the graph, structured import pipelines, and folder-based case management, the full **Graph Canvas Workstation** (Under development) provides all of that as a local-first desktop application, same data format, direct import from any Graph Canvas JSON export.

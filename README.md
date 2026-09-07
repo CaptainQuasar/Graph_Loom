@@ -1,6 +1,6 @@
 # Graph Canvas
 
-> Build, annotate, and share relationship graphs — fully offline, no accounts, no server.
+> Build, annotate, and share relationship graphs, fully offline, no accounts, no server.
 
 Graph Canvas is a single `.html` file. Open it in any browser and you have a working graph tool. Every download you create is itself a fully working copy of the tool, complete with your data. Share the file and the recipient can explore, annotate, and extend it, no installation, no login, nothing to install.
 
@@ -9,7 +9,7 @@ Graph Canvas is a single `.html` file. Open it in any browser and you have a wor
 ## Quick Start
 
 1. Open `GraphCanvas.html` in any modern browser
-2. The sample graph loads automatically — explore it by clicking nodes
+2. The sample graph loads automatically explore it by clicking nodes
 3. Click **✏ Edit** in the header to open the editor
 4. Add your own nodes and links, or clear the sample via **Edit → Import/Export → ✕ Clear All**
 5. When ready to share: **Edit → Import/Export → ⬇ Download as HTML**
@@ -24,7 +24,7 @@ Open with **✏ Edit** in the header. Close with **×** or by clicking outside t
 
 ### Nodes
 
-Each node represents an entity — a person, company, organisation, fund, or anything else.
+Each node represents an entity, a person, company, organisation, fund, or anything else.
 
 | Field | Required | Description |
 |---|---|---|
@@ -50,7 +50,7 @@ Links connect two nodes and carry a type and an optional label.
 |---|---|---|
 | Source | Yes | The originating node. |
 | Target | Yes | The destination node. |
-| Type | Yes | The relationship type. Determines the link's colour. Start typing to see suggestions, or enter anything — custom types are accepted and registered automatically. |
+| Type | Yes | The relationship type. Determines the link's colour. Start typing to see suggestions, or enter anything, custom types are accepted and registered automatically. |
 | Label | No | Short factual description of this specific connection. Shown in the side panel connection list. |
 
 Links are treated as **undirected** for duplicate checking — you cannot have both A→B and B→A.
@@ -103,7 +103,7 @@ The status line reports what was added vs skipped.
 
 ### Download as HTML
 
-Downloads a complete standalone `.html` file with all current data baked in. The recipient opens it in a browser and sees the full graph with the full editor — no import step needed. The file contains the markers needed for further downloads, so the **edit → download → share → edit → download** cycle works indefinitely.
+Downloads a complete standalone `.html` file with all current data baked in. The recipient opens it in a browser and sees the full graph with the full editor, no import step needed. The file contains the markers needed for further downloads, so the **edit → download → share → edit → download** cycle works indefinitely.
 
 ### Download SVG
 

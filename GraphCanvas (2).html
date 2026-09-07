@@ -1,0 +1,3113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Canvas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"
+        integrity="sha384-su5kReKyYlIFrI62mbQRKXHzFobMa7BHp1cK6julLPbnYcCW9NIZKJiTODjLPeDh"
+        crossorigin="anonymous"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #f2f0e9;
+  --surface: #fdfcf8;
+  --surface2: #eae8e0;
+  --text: #1c1c1b;
+  --text-dim: #6e6b68;
+  --border: #ccc9bf;
+  --accent: #1e3a5f;
+  --accent2: #7a1848;
+  --ring-guide: rgba(28,28,27,0.08);
+  --node0: #8b0000;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; height: 100%; overflow: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background-image: url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+  opacity: 0.15; pointer-events: none; z-index: 0;
+}
+
+/* ─── HEADER ─────────────────────────────────────── */
+#header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--surface); border-bottom: 2px solid var(--accent);
+  padding: 0 20px; height: 52px;
+  display: flex; align-items: center; gap: 12px;
+}
+#header-title {
+  font-family: 'Crimson Pro', serif; font-weight: 700;
+  font-size: 0.9rem; letter-spacing: 0.03em; color: var(--text);
+  white-space: nowrap; flex-shrink: 0;
+  cursor: pointer; border-radius: 3px; transition: outline 0.1s;
+}
+#header-title:hover { outline: 1px dashed var(--border); outline-offset: 3px; }
+#header-title:focus { outline: 2px solid var(--accent); outline-offset: 3px; cursor: text; }
+#header-title .subtitle { font-weight: 400; color: var(--text-dim); font-size: 0.78rem; margin-left: 8px; }
+
+/* ─── CATEGORY FILTER TABS ───────────────────── */
+#filter-bar {
+  display: flex; align-items: center; gap: 4px;
+  margin-left: 6px; margin-right: 6px;
+  overflow-x: auto; flex-shrink: 1;
+}
+.filter-btn {
+  font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+  font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+  background: none; color: var(--text-dim); cursor: pointer;
+  white-space: nowrap; transition: all 0.15s; opacity: 0.65;
+}
+.filter-btn:hover { opacity: 1; }
+.filter-btn.active { opacity: 1; font-weight: 700; }
+.filter-btn[data-cat="all"].active { background: var(--text); color: var(--surface); border-color: var(--text); }
+.filter-btn[data-cat="intel"].active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+.filter-btn[data-cat="ops"].active { background: #7a1848; color: #fff; border-color: #7a1848; }
+.filter-btn[data-cat="finance"].active { background: #28a197; color: #fff; border-color: #28a197; }
+.filter-btn[data-cat="tech"].active { background: #3d5a80; color: #fff; border-color: #3d5a80; }
+.filter-btn[data-cat="network"].active { background: #5a4a8a; color: #fff; border-color: #5a4a8a; }
+.filter-btn[data-cat="media"].active { background: #1f4d36; color: #fff; border-color: #1f4d36; }
+.filter-btn[data-cat="cognitive"].active { background: #996515; color: #fff; border-color: #996515; }
+.filter-btn[data-cat="transhuman"].active { background: #1a7a7a; color: #fff; border-color: #1a7a7a; }
+.filter-btn[data-cat="compute"].active { background: #2b4c7e; color: #fff; border-color: #2b4c7e; }
+.filter-btn[data-cat="defense"].active { background: #61163b; color: #fff; border-color: #61163b; }
+.filter-btn[data-cat="power"].active { background: #d97706; color: #fff; border-color: #d97706; }
+.filter-btn[data-cat="models"].active { background: #4a3b75; color: #fff; border-color: #4a3b75; }
+.filter-btn[data-cat="infrastructure"].active { background: #183b28; color: #fff; border-color: #183b28; }
+
+/* ─── STATS, TOURS, & SEARCH ─────────────────────── */
+#stats-badge {
+  font-size: 0.65rem; font-weight: 600; color: var(--text-dim);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 3px;
+  padding: 3px 8px; white-space: nowrap; letter-spacing: 0.04em; margin-right: auto;
+}
+#tour-selector {
+  margin-left: 12px; margin-right: 12px; flex-shrink: 0;
+}
+#tour-dropdown {
+  background: var(--surface2); border: 1px solid var(--accent); border-radius: 4px;
+  padding: 4px 8px; font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 700;
+  color: var(--accent); outline: none; cursor: pointer; text-transform: uppercase;
+}
+#search-box { position: relative; flex-shrink: 0; }
+#search-input {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+  padding: 5px 10px 5px 28px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+  width: 160px; color: var(--text); outline: none; transition: width 0.2s;
+}
+#search-input:focus { width: 220px; }
+#search-box::before {
+  content: '⌕'; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 0.85rem; color: var(--text-dim); pointer-events: none;
+}
+#search-results {
+  position: absolute; top: 100%; left: 0; right: 0; background: var(--surface);
+  border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px;
+  max-height: 250px; overflow-y: auto; display: none; z-index: 200;
+}
+.search-item { padding: 6px 10px; font-size: 0.72rem; cursor: pointer; border-bottom: 1px solid var(--surface2); }
+.search-item:hover { background: var(--surface2); }
+
+/* ─── MAIN LAYOUT ────────────────────────────────── */
+#main-container {
+  position: fixed; top: 52px; left: 0; right: 0; bottom: 56px;
+  display: flex; z-index: 1;
+}
+#graph-container { flex: 1; position: relative; overflow: hidden; }
+#graph-container svg { width: 100%; height: 100%; }
+
+/* ─── SIDE PANEL ─────────────────────────────────── */
+#side-panel {
+  width: 0; min-width: 0; overflow: hidden;
+  background: var(--surface); border-left: 2px solid var(--accent);
+  transition: width 0.3s ease, min-width 0.3s ease;
+  position: relative; z-index: 50;
+}
+#side-panel.open { width: 440px; min-width: 440px; }
+@media (max-width: 768px) {
+  #side-panel.open { width: 100%; min-width: 100%; position: absolute; top: 0; bottom: 0; right: 0; z-index: 200; }
+  #filter-bar { display: none; }
+  .filter-btn { font-size: 0.65rem; }
+}
+#panel-inner { width: 440px; padding: 16px; overflow-y: auto; height: 100%; }
+#panel-close {
+  position: absolute; top: 8px; right: 8px; background: none; border: none;
+  font-size: 1.2rem; cursor: pointer; color: var(--text-dim); z-index: 10;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 3px;
+}
+#panel-close:hover { background: var(--surface2); color: var(--text); }
+#panel-title { font-family: 'Crimson Pro', serif; font-weight: 700; font-size: 1.25rem; margin-bottom: 2px; padding-right: 30px; }
+#panel-cat-badge {
+  display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 2px 7px;
+  border-radius: 3px; color: white; margin-bottom: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+#panel-desc { font-size: 0.78rem; line-height: 1.6; color: var(--text); margin-bottom: 12px; text-align: justify; }
+.panel-section-title {
+  font-family: 'Crimson Pro', serif; font-weight: 700; font-size: 0.85rem;
+  color: var(--accent); border-bottom: 1px solid var(--border);
+  padding-bottom: 3px; margin: 16px 0 8px 0; letter-spacing: 0.03em; text-transform: uppercase;
+}
+.event-item { font-size: 0.72rem; line-height: 1.5; margin-bottom: 8px; padding-left: 10px; border-left: 2px solid var(--border); }
+.event-year { font-weight: 700; color: var(--accent); margin-right: 4px; display: inline-block;}
+#btn-make-ego {
+  width: 100%; margin-bottom: 12px; background: var(--accent); color: white; 
+  border: none; padding: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; 
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 4px; cursor: pointer;
+  transition: background 0.2s;
+}
+#btn-make-ego:hover { background: var(--accent2); }
+
+/* ─── CAUSAL CONNECTION ITEMS ────────────────────── */
+.connection-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px;
+  font-size: 0.7rem; border-radius: 3px; margin-bottom: 6px;
+  border: 1px solid var(--surface2); background: var(--surface);
+  cursor: pointer; transition: background 0.15s;
+}
+.connection-item:hover { background: var(--surface2); border-color: var(--border); }
+.conn-type-badge {
+  font-size: 0.55rem; font-weight: 700; padding: 2px 5px; border-radius: 2px;
+  color: white; white-space: nowrap; min-width: 56px; text-align: center;
+  text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px;
+}
+.conn-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; font-style: italic; }
+.conn-detail {
+  font-size: 0.7rem; color: var(--text); line-height: 1.5;
+  padding: 10px; background: var(--surface2); border-radius: 3px;
+  margin: 8px 0 0 0; text-align: justify; border-left: 2px solid var(--accent);
+  display: none;
+}
+.connection-item.expanded .conn-detail { display: block; }
+.conn-detail-section { margin-bottom: 8px; }
+.conn-detail-section:last-child { margin-bottom: 0; }
+.conn-sources { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+.conn-source-pill {
+  font-size: 0.6rem; padding: 2px 7px; border-radius: 10px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18);
+  color: var(--accent); text-decoration: none; white-space: nowrap;
+  transition: background 0.2s;
+}
+.conn-source-pill:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.conn-detail-label { 
+  font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--accent); 
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 2px;
+}
+
+/* ─── TIMELINE LEDGER ────────────────────────────── */
+#timeline-ledger {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 56px;
+  background: var(--surface); border-top: 2px solid var(--accent);
+  display: flex; align-items: center; overflow-x: auto; gap: 8px; padding: 0 16px;
+  z-index: 100; white-space: nowrap;
+}
+#timeline-ledger::-webkit-scrollbar { height: 6px; }
+#timeline-ledger::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.timeline-node {
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 500;
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 3px;
+  cursor: pointer; background: var(--surface2); color: var(--text);
+  transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+}
+.timeline-node:hover { background: var(--border); }
+.timeline-node.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.timeline-node .year { color: var(--accent2); font-weight: 700; font-size: 0.65rem; }
+.timeline-node.active .year { color: #fff; opacity: 0.8; }
+.timeline-node .tl-label { font-weight: 700; color: var(--accent); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.timeline-node.active .tl-label { color: #ccc; }
+
+/* ─── UNIVERSAL LINKS ────────────────────────────── */
+.node-link {
+  color: var(--accent); font-weight: 700; cursor: pointer;
+  text-decoration: underline; text-decoration-style: dotted; text-decoration-thickness: 1px;
+  transition: color 0.15s;
+}
+.node-link:hover { color: var(--accent2); }
+.target-node-link {
+  cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 0.78rem;
+  transition: color 0.15s;
+}
+.target-node-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ─── CONTROLS & TOOLTIP ─────────────────────────── */
+#controls {
+  position: fixed; bottom: 72px; left: 16px; z-index: 90;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ctrl-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 12px; font-family: 'DM Sans', sans-serif; font-size: 0.68rem;
+  font-weight: 600; cursor: pointer; color: var(--text); letter-spacing: 0.03em;
+  transition: all 0.15s;
+}
+.ctrl-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+#tooltip {
+  position: fixed; z-index: 200; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 12px; font-size: 0.68rem;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1); max-width: 260px;
+  opacity: 0; transition: opacity 0.15s;
+}
+#tooltip.visible { opacity: 1; }
+#tooltip .tt-title { font-weight: 700; margin-bottom: 2px; }
+#tooltip .tt-cat { font-size: 0.6rem; color: var(--text-dim); }
+
+/* ─── RING LABELS ────────────────────────────────── */
+.ring-label {
+  font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700;
+  fill: var(--text-dim); text-anchor: middle; letter-spacing: 0.08em;
+  text-transform: uppercase; pointer-events: none; opacity: 0.6;
+}
+
+/* ─── PANEL SOURCES ──────────────────────────────── */
+.panel-sources {
+  font-size: 0.62rem; color: var(--text-dim); line-height: 1.5; margin-top: 10px;
+  padding: 8px 10px; background: var(--surface2); border-left: 2px solid var(--border);
+  border-radius: 0 2px 2px 0;
+}
+.panel-sources strong { color: var(--accent); font-weight: 700; letter-spacing: 0.03em; }
+.appendix-badge {
+  display: inline-block; font-size: 0.55rem; font-weight: 700; padding: 2px 6px;
+  border-radius: 2px; color: white; background: #996515; margin-left: 6px;
+  letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle;
+}
+
+/* ─── NODE STYLES (via D3) ───────────────────────── */
+.node-circle { cursor: pointer; transition: opacity 0.3s, r 0.3s; }
+@keyframes nodeAppear { from { opacity: 0; r: 0; } to { opacity: 1; } }
+.node-circle:hover { filter: brightness(0.9); }
+.node-label { font-family: 'DM Sans', sans-serif; font-weight: 600; pointer-events: none; text-anchor: middle; }
+.link-line { fill: none; pointer-events: none; }
+</style>
+
+</head>
+<body>
+
+<style>
+/* ── WELCOME MODAL ───────────────────────────────── */
+#welcome-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.82);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+}
+#welcome-box {
+  background: var(--surface); border: 1px solid var(--accent);
+  max-width: 480px; width: 92vw; padding: 32px 36px;
+  border-radius: 6px; color: var(--text); line-height: 1.6;
+}
+.welcome-eyebrow {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.18em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 10px;
+}
+.welcome-title {
+  font-family: 'Crimson Pro', serif; font-size: 1.2rem; font-weight: 700;
+  color: var(--text); margin: 0 0 12px;
+}
+.welcome-body { font-size: 0.78rem; color: var(--text-dim); margin: 0 0 16px; }
+.welcome-features {
+  font-size: 0.75rem; line-height: 2; color: var(--text);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 10px 0; margin-bottom: 14px;
+}
+.welcome-features strong { color: var(--accent); }
+.welcome-hint {
+  font-size: 0.65rem; color: var(--text-dim); margin: 0 0 20px; font-style: italic;
+}
+#welcome-close-btn {
+  background: var(--accent); color: white; border: none;
+  padding: 10px 24px; border-radius: 4px; font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem; font-weight: 700; cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.2s;
+}
+#welcome-close-btn:hover { background: var(--accent2); }
+
+/* ── DECRYPT OVERLAY (encrypted files) ──────────────── */
+#decrypt-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+  z-index: 9999; display: none; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+}
+#decrypt-box {
+  background: var(--surface); border: 1px solid var(--accent);
+  max-width: 400px; width: 92vw; padding: 32px 36px; border-radius: 6px;
+}
+.decrypt-eyebrow {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.18em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 10px;
+}
+.decrypt-title {
+  font-family: 'Crimson Pro', serif; font-size: 1.2rem; font-weight: 700;
+  color: var(--text); margin: 0 0 8px;
+}
+.decrypt-body { font-size: 0.78rem; color: var(--text-dim); margin: 0 0 16px; }
+#decrypt-input {
+  width: 100%; box-sizing: border-box;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 3px;
+  padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 16px;
+  color: var(--text); outline: none; margin-bottom: 8px;
+}
+#decrypt-input:focus { border-color: var(--accent); }
+#decrypt-error { font-size: 0.72rem; color: #c0392b; min-height: 18px; margin-bottom: 8px; }
+#decrypt-btn {
+  width: 100%; background: var(--accent); color: white; border: none;
+  padding: 11px; border-radius: 4px; font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem; font-weight: 700; cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.2s;
+}
+#decrypt-btn:hover { background: var(--accent2); }
+#decrypt-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── PASSWORD REVEAL MODAL (shown to creator after encrypt) ─ */
+#password-reveal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.82);
+  z-index: 9999; display: none; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+}
+#password-reveal-box {
+  background: var(--surface); border: 2px solid var(--accent);
+  max-width: 420px; width: 92vw; padding: 28px 32px; border-radius: 6px;
+}
+#password-reveal-display {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 1.1rem; font-weight: 700; color: var(--accent);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px 16px; margin: 12px 0;
+  word-break: break-all; letter-spacing: 0.05em;
+}
+.pw-reveal-btns { display: flex; gap: 8px; margin-top: 16px; }
+.pw-reveal-btns button { flex: 1; padding: 9px; border-radius: 4px; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MULTI-DEVICE LAYER — additive only, no changes to existing rules above.
+   Breakpoints: 900px (tablet) · 640px (phone) · pointer:coarse (any touch)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* CRITICAL: without this the browser's own pinch/scroll swallows the gesture
+   before d3.zoom ever sees it, making the graph immovable on touch. */
+#graph-container, #graph-container svg { touch-action: none; }
+
+/* ─── ANY TOUCH DEVICE (regardless of screen size) ───────────────────────── */
+@media (hover: none), (pointer: coarse) {
+  /* A mouse-following tooltip has no meaning without a mouse; on touch it
+     latches open and never clears. Node tap opens the side panel anyway. */
+  #tooltip { display: none !important; }
+
+  /* Kill the 300ms tap delay and double-tap-to-zoom on interactive chrome */
+  button, .filter-btn, .ctrl-btn, .timeline-node,
+  .tour-nav-btn, .search-item, .conn-source-pill, .node-link {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.06);
+  }
+
+  /* Tap targets: 44px is the platform minimum for reliable hit accuracy */
+  .ctrl-btn { min-width: 44px; min-height: 44px; font-size: 0.8rem; }
+  #panel-close, .tours-close-btn { width: 44px; height: 44px; font-size: 1.5rem; }
+  .filter-btn { min-height: 32px; padding: 6px 10px; }
+  .timeline-node { min-height: 38px; }
+  .search-item { padding: 11px 10px; }
+
+  /* Hover states latch on touch — neutralise them */
+  .filter-btn:hover, .timeline-node:hover { background: inherit; }
+  .ctrl-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border); }
+}
+
+/* ─── TABLET / SMALL LAPTOP ──────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  #header-title .subtitle { display: none; }
+  #header-title { font-size: 0.8rem; }
+  #stats-badge { display: none; }
+  #side-panel.open { width: 380px; min-width: 380px; }
+  #panel-inner { width: 100%; }
+}
+
+/* ─── PHONE ──────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Header collapses to: title · search · tours. Lens bar scrolls under it. */
+  #header {
+    height: 46px; padding: 0 10px; gap: 8px;
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(46px + env(safe-area-inset-top, 0px));
+  }
+  #header-title { font-size: 0.68rem; letter-spacing: 0.01em; }
+  #search-input { width: 100px; font-size: 16px; /* 16px stops iOS zoom-on-focus */ }
+  #search-input:focus { width: 130px; }
+
+  /* Main viewport sits below header + lens bar, above the ledger */
+  #main-container {
+    top: calc(80px + env(safe-area-inset-top, 0px));
+    bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* THE PANEL BUG: parent goes 100% but the inner div stayed pinned at 440px,
+     clipping every source link and event line. */
+  #side-panel.open { width: 100%; min-width: 100%; }
+  #panel-inner { width: 100%; padding: 14px 12px; padding-bottom: 40px; }
+
+  /* Ledger: shorter, and clear of the home indicator */
+  #timeline-ledger {
+    height: calc(46px + env(safe-area-inset-bottom, 0px));
+    padding: 0 10px calc(0px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+  }
+  .timeline-node { font-size: 0.6rem; padding: 5px 9px; }
+
+  /* Controls move to a horizontal row bottom-right so they stop colliding
+     with the lens narration and the ledger, which all wanted bottom:72px */
+  #controls {
+    flex-direction: row; left: auto; right: 10px;
+    bottom: calc(54px + env(safe-area-inset-bottom, 0px)); gap: 5px;
+  }
+  .ctrl-btn { padding: 8px 11px; }
+  #btn-reset { font-size: 0.6rem; }
+
+  #search-results { max-height: 200px; }
+  /* Welcome modal: full-width on small screens */
+  #welcome-box { padding: 24px 20px; }
+}
+
+/* ─── PHONE, LANDSCAPE (very short viewport) ─────────────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  #timeline-ledger { display: none; }
+  #main-container { top: calc(46px + env(safe-area-inset-top, 0px)); bottom: 0; }
+  #controls { bottom: 10px; }
+}
+</style>
+
+<!-- WELCOME MODAL -->
+<div id="welcome-overlay">
+  <div id="welcome-box">
+    <div class="welcome-eyebrow">Graph Canvas</div>
+    <h2 class="welcome-title">Build, annotate, and share relationship graphs</h2>
+    <p class="welcome-body">Fully offline — no accounts, no server, no data leaves your device. Every download is a self-contained working graph anyone can open.</p>
+    <div class="welcome-features">
+      <div>✏ <strong>Edit</strong> — add nodes, links, and documented evidence</div>
+      <div>⬇ <strong>Download</strong> — save as a shareable HTML file</div>
+      <div>📂 <strong>Import JSON</strong> — restore a previously exported graph</div>
+    </div>
+    <p class="welcome-hint">A sample graph is loaded. Clear it via Edit → Import/Export, or start adding your own nodes directly.</p>
+    <button id="welcome-close-btn">Explore the example →</button>
+  </div>
+</div>
+
+
+<!-- DECRYPT OVERLAY (shown when opening an encrypted file) -->
+<div id="decrypt-overlay">
+  <div id="decrypt-box">
+    <div class="decrypt-eyebrow">🔒 Graph Canvas</div>
+    <h2 class="decrypt-title">This graph is encrypted</h2>
+    <p class="decrypt-body">Enter the passphrase to decrypt and view the graph. The file never contacts any server — decryption happens entirely in your browser.</p>
+    <input type="password" id="decrypt-input" placeholder="Passphrase…" autocomplete="current-password">
+    <div id="decrypt-error"></div>
+    <button id="decrypt-btn">Decrypt →</button>
+  </div>
+</div>
+
+<!-- PASSWORD REVEAL (shown to creator immediately after encrypted download) -->
+<div id="password-reveal-overlay">
+  <div id="password-reveal-box">
+    <div class="decrypt-eyebrow">🔒 File encrypted &amp; downloaded</div>
+    <h2 class="decrypt-title">Your passphrase</h2>
+    <p class="decrypt-body">Share this separately from the file — via Signal, in person, or any secure channel. Anyone with both the file and this passphrase can decrypt the graph.</p>
+    <div id="password-reveal-display"></div>
+    <div class="pw-reveal-btns">
+      <button id="password-reveal-copy" style="background:var(--accent);color:white;border:none">⎘ Copy passphrase</button>
+      <button id="password-reveal-close" style="background:none;border:1px solid var(--border);color:var(--text)">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-title">Graph Canvas</div>
+  <div id="filter-bar">
+    <button class="filter-btn active" data-cat="all">All</button>
+    <!-- remaining buttons generated from CAT_META by buildFilterBar() -->
+  </div>
+  <div id="stats-badge">Initializing Data...</div>
+  <button id="editor-btn-in-header" onclick="toggleEditor()" title="Add, edit, or delete nodes and links">✏ Edit</button>
+  <div id="search-box">
+    <input id="search-input" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main-container">
+  <div id="graph-container">
+    <!-- legacy tour overlay removed; HUD handles tours -->
+  </div>
+  <div id="side-panel">
+    <button id="panel-close">&times;</button>
+    <div id="panel-inner"></div>
+  </div>
+</div>
+
+<!-- TIMELINE LEDGER -->
+<div id="timeline-ledger"></div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <button class="ctrl-btn" id="btn-reset" title="Reset to default view">&#x21ba; RESET</button>
+  <button class="ctrl-btn" id="btn-zoom-in" title="Zoom in">+</button>
+  <button class="ctrl-btn" id="btn-zoom-out" title="Zoom out">&minus;</button>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip">
+  <div class="tt-title"></div>
+  <div class="tt-cat"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+// Capture original HTML source BEFORE any DOM mutations (filter bar build, autosave, D3)
+// Used by Download-as-HTML: script tag content survives outerHTML serialisation verbatim
+const _ORIGINAL_HTML_SNAPSHOT = document.documentElement.outerHTML;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. MASSIVE DATA INJECTION (NODES, LINKS, SCHEMA) - FULLY RESTORED
+// ══════════════════════════════════════════════════════════════════════════════
+
+// @@GRAPH_TITLE_START@@
+let graphTitle = 'Graph Canvas';
+// @@GRAPH_TITLE_END@@
+
+// @@ENCRYPTED_START@@
+const ENCRYPTED_PAYLOAD = { salt: null, iv: null, ct: null };
+// @@ENCRYPTED_END@@
+
+// Welcome modal — dismiss on button click; remember via sessionStorage
+document.getElementById('welcome-close-btn').addEventListener('click', () => {
+  document.getElementById('welcome-overlay').style.display = 'none';
+  try { sessionStorage.setItem('gc_welcomed', '1'); } catch(e) {}
+});
+try {
+  if (sessionStorage.getItem('gc_welcomed') === '1')
+    document.getElementById('welcome-overlay').style.display = 'none';
+} catch(e) {}
+
+// @@NODES_START@@
+const nodes =[
+{ id: 'apex_capital', label: 'Apex Capital', cat: 'financial', r: 18, year: 1992, layer: 2,
+  title: 'Apex Capital',
+  desc: 'A mid-market private equity fund with documented stakes in media, energy, and technology assets across three continents. Largest single donor to the Meridian Foundation endowment.',
+  events: [
+    { year: '1992', text: 'Founded by consortium of institutional investors.' },
+    { year: '2008', text: 'Acquired controlling stake in BlueChip Corp during financial crisis.' },
+    { year: '2019', text: 'Committed $40M to Meridian Foundation endowment.' }
+  ]
+},
+{ id: 'jane_chen', label: 'Jane Chen', cat: 'person', r: 13, year: 1974, layer: 3,
+  title: 'Jane Chen — Executive',
+  desc: 'Former Goldman Sachs partner, current Apex Capital board director and BlueChip Corp founder. Documented attendance at Meridian Foundation annual conferences 2018–2024.',
+  events: [
+    { year: '1996', text: 'Joined Goldman Sachs structured products desk.' },
+    { year: '2003', text: 'Founded BlueChip Corp as a vehicle for logistics acquisitions.' },
+    { year: '2011', text: 'Appointed to Apex Capital board.' }
+  ]
+},
+{ id: 'meridian_foundation', label: 'Meridian Foundation', cat: 'thinktank', r: 15, year: 2001, layer: 4,
+  title: 'Meridian Foundation',
+  desc: 'Policy research organisation focused on trade and financial regulation. Annual budget ~$12M; receives grants from Apex Capital and undisclosed donors. Three white papers cited in Senate hearings on regulations directly affecting Apex portfolio companies.',
+  events: [
+    { year: '2001', text: 'Incorporated as a 501(c)(3) non-profit.' },
+    { year: '2015', text: 'Published deregulation white paper cited in three Senate hearings.' },
+    { year: '2022', text: 'Hired former SEC commissioner as senior fellow.' }
+  ]
+},
+{ id: 'pulse_media', label: 'Pulse Media', cat: 'media', r: 14, year: 2009, layer: 5,
+  title: 'Pulse Media Group',
+  desc: 'Digital and print news network with 4.2M monthly readers. Editorially aligned with financial deregulation positions documented to match Meridian Foundation output. Meridian trustee joined editorial board 2017.',
+  events: [
+    { year: '2009', text: 'Launched as digital-only financial news outlet.' },
+    { year: '2017', text: 'Acquired two regional print titles; Meridian Foundation trustee joins editorial board.' },
+    { year: '2023', text: 'Published 14 op-eds citing Meridian research in 12-month period.' }
+  ]
+},
+{ id: 'bluechip_corp', label: 'BlueChip Corp', cat: 'company', r: 16, year: 2003, layer: 3,
+  title: 'BlueChip Corp',
+  desc: 'Logistics and infrastructure holding company. Majority-owned by Apex Capital since 2008. Jane Chen holds 8% equity and a board seat.',
+  events: [
+    { year: '2003', text: 'Founded by Jane Chen; initial focus on port logistics contracts.' },
+    { year: '2008', text: 'Apex Capital acquires 64% controlling stake for $340M.' },
+    { year: '2021', text: 'Awarded three government infrastructure contracts worth $1.2B combined.' }
+  ]
+}
+];
+// @@NODES_END@@
+
+// @@LINKS_START@@
+const links =[
+{ source: 'jane_chen', target: 'apex_capital', type: 'director', label: 'Board director since 2011. Receives $280K annual retainer. Documented in Apex Capital SEC filings 2011–2024.' },
+{ source: 'jane_chen', target: 'bluechip_corp', type: 'founded', label: 'Founded 2003, retains 8% equity and a board seat post-Apex acquisition.' },
+{ source: 'apex_capital', target: 'bluechip_corp', type: 'owns', label: 'Acquired 64% controlling stake in 2008 for $340M. SEC filing: APEX-2008-13D.' },
+{ source: 'apex_capital', target: 'meridian_foundation', type: 'funded', label: '$40M endowment commitment 2019. Apex Capital managing partner sits on Meridian board.' },
+{ source: 'meridian_foundation', target: 'pulse_media', type: 'funded', label: 'Meridian trustee joined Pulse editorial board 2017. 14 Meridian-authored op-eds published by Pulse 2022–2023.' }
+];
+// @@LINKS_END@@
+
+// @@DETAIL_START@@
+const LINK_DETAIL_MAP = {
+"apex_capital::meridian_foundation": {
+  what: "Apex Capital committed $40 million to Meridian Foundation's endowment in 2019, making it the largest single donor. An Apex managing partner simultaneously holds a seat on the Meridian board.",
+  how: "The commitment is documented in Meridian Foundation's 2019 and 2020 Form 990 filings (Schedule B, donor #1). The board interlocking is noted in Meridian's 2020 Annual Report biography section.",
+  impact: "Meridian's published research output on financial deregulation aligns closely with Apex Capital's regulatory interests. Three Meridian white papers between 2019–2023 were cited in Senate hearings on regulations directly affecting Apex portfolio companies.",
+  sources: [
+    { l: "Meridian Foundation Form 990, 2019", u: "https://example.com/meridian-990-2019" },
+    { l: "Meridian Annual Report 2020", u: "https://example.com/meridian-annual-2020" }
+  ]
+}
+};
+// @@DETAIL_END@@
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. GRAPH ENGINE
+// ══════════════════════════════════════════════════════════════════════════════
+
+const nodeMap = {};
+nodes.forEach(n => { nodeMap[n.id] = n; n.ring = 3; n._targetRadius = 580; });
+
+// Validate links - filter out any with missing nodes (prevents D3 crash)
+const validLinks = links.filter(l => {
+  const s = typeof l.source === 'object' ? l.source.id : l.source;
+  const t = typeof l.target === 'object' ? l.target.id : l.target;
+  return nodeMap[s] && nodeMap[t];
+});
+links.length = 0;
+validLinks.forEach(l => links.push(l));
+
+const adjacency = {};
+nodes.forEach(n => { adjacency[n.id] = new Set(); });
+links.forEach(l => {
+  const s = typeof l.source === 'object' ? l.source.id : l.source;
+  const t = typeof l.target === 'object' ? l.target.id : l.target;
+  if (adjacency[s] && adjacency[t]) {
+    adjacency[s].add(t);
+    adjacency[t].add(s);
+  }
+});
+
+
+
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. ENGINE LOGIC & DYNAMIC SYNTHESIS (Fallback)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const RING_RADII =[0, 210, 400, 580];
+
+// Generic, data-agnostic categories. Add new entries here to extend the filter bar,
+// editor dropdown, and node styling — no other file changes needed.
+const CAT_META = {
+  person:       { stroke: '#5a4a8a', fill: '#cdc7de', label: 'Person' },
+  company:      { stroke: '#2b4c7e', fill: '#a8bedb', label: 'Company' },
+  organisation: { stroke: '#183b28', fill: '#a2c4b1', label: 'Organisation' },
+  financial:    { stroke: '#28a197', fill: '#bce0dc', label: 'Financial' },
+  media:        { stroke: '#1f4d36', fill: '#bdd4c7', label: 'Media' },
+  thinktank:    { stroke: '#996515', fill: '#f0e0b0', label: 'Think Tank' },
+  government:   { stroke: '#1e3a5f', fill: '#c8d4e3', label: 'Government' },
+  legal:        { stroke: '#61163b', fill: '#d9a7bd', label: 'Legal' },
+  network:      { stroke: '#7a1848', fill: '#dfc0d0', label: 'Network' },
+  other:        { stroke: '#6e6b68', fill: '#d4d3d1', label: 'Other' }
+};
+
+// Generic layer system — labels are intentionally neutral so any dataset can use them.
+// Override in your dataset by setting node.layer to any integer.
+const LAYER_META = {
+  '-1': { fill: '#888888', stroke: '#555555', label: 'Uncategorised' },
+   0:   { fill: '#FF6B35', stroke: '#CC4410', label: 'Layer 0' },
+   1:   { fill: '#E8C56E', stroke: '#A8892A', label: 'Layer 1' },
+   2:   { fill: '#2D6A4F', stroke: '#1B4332', label: 'Layer 2' },
+   3:   { fill: '#9B59B6', stroke: '#6C3483', label: 'Layer 3' },
+   4:   { fill: '#C0392B', stroke: '#7B241C', label: 'Layer 4' },
+   5:   { fill: '#2980B9', stroke: '#1A5276', label: 'Layer 5' }
+};
+
+function getLayerFill(d) {
+  if (d.id === 'node_0') return '#e6b3b3';
+  const lm = LAYER_META[d.layer !== undefined ? d.layer : -1];
+  return lm ? lm.fill : (CAT_META[d.cat] || CAT_META.network).fill;
+}
+
+function getLayerStroke(d) {
+  if (d.id === 'node_0') return 'var(--node0)';
+  if (d.id === selectedSubNode) return '#7a1848';
+  const lm = LAYER_META[d.layer !== undefined ? d.layer : -1];
+  return lm ? lm.stroke : (CAT_META[d.cat] || CAT_META.network).stroke;
+}
+
+
+// Single source of truth — renderer (LINK_COLORS) and editor dropdown both derive from this.
+// To add a link type: one entry here. Both places update automatically.
+const LINK_REGISTRY = {
+  worked: '#6e6b68', founded: '#5a4a8a', finances: '#28a197', financial: '#28a197',
+  funded: '#28a197', owns: '#7a1848', director: '#1e3a5f', member: '#5a4a8a',
+  controlled: '#7a1848', intel: '#1e3a5f', invested: '#996515',
+  political: '#5a4a8a', influence: '#1f4d36', organizational: '#6e6b68',
+  evolved: '#3d5a80', operational: '#7a1848', ownership: '#5a4a8a',
+  coordinated: '#5a4a8a', aligned: '#1f4d36', endorsed: '#d97706',
+  amplified: '#3d5a80', produced: '#5a4a8a', created: '#5a4a8a',
+  blackmail: '#8b0000', contract: '#7a1848', policy: '#7a1848',
+  structural: '#3d5a80', surveillance: '#1e3a5f', dependency: '#5a4a8a',
+  supply_chain: '#d97706', ideological: '#1f4d36', adversarial: '#8b0000',
+  regulatory: '#7a1848', infrastructure: '#1f4d36',
+};
+const LINK_COLORS = LINK_REGISTRY;
+
+
+function getLinkDetail(a, b) {
+  const key1 = a + '::' + b;
+  const key2 = b + '::' + a;
+  
+  if (LINK_DETAIL_MAP[key1]) return LINK_DETAIL_MAP[key1];
+  if (LINK_DETAIL_MAP[key2]) return LINK_DETAIL_MAP[key2];
+
+  // ── FALLBACK: No verified edge entry exists in LINK_DETAIL_MAP ──────────
+  // F-Engine constraint: DO NOT fabricate narrative or sources.
+  // Return a transparent stub that declares the epistemic status of this connection.
+
+  const nA = nodeMap[a];
+  const nB = nodeMap[b];
+  const link = links.find(l => 
+    (typeof l.source === 'object' ? l.source.id === a : l.source === a) && 
+    (typeof l.target === 'object' ? l.target.id === b : l.target === b) || 
+    (typeof l.source === 'object' ? l.source.id === b : l.source === b) && 
+    (typeof l.target === 'object' ? l.target.id === a : l.target === a)
+  );
+  
+  if (!nA || !nB || !link) return null;
+
+  const edgeLabel = link.label || '(no label)';
+  const edgeType  = (link.type || 'LINK').toUpperCase();
+  const edgeKey   = key1;
+
+  return {
+    what: `No detail documented yet for this connection (${nA.label} → ${nB.label}). Edge type: [${edgeType}]. Label: "${edgeLabel}".`,
+    how: `To add detail, open Edit → Link Details, select these two nodes, and fill in the What / How / Impact fields with a source citation. Key for this connection: "${edgeKey}".`,
+    impact: `Impact not yet assessed for this connection.`,
+    sources: []
+  };
+}
+
+function lid(endpoint) { return typeof endpoint === 'object' ? endpoint.id : endpoint; }
+function lnode(endpoint) { return typeof endpoint === 'object' ? endpoint : nodeMap[endpoint]; }
+
+function bfs(startId) {
+  const dist = {};
+  nodes.forEach(n => { dist[n.id] = Infinity; });
+  dist[startId] = 0;
+  const queue =[startId];
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    for (const nb of adjacency[cur] ||[]) {
+      if (dist[nb] === Infinity) {
+        dist[nb] = dist[cur] + 1;
+        queue.push(nb);
+      }
+    }
+  }
+  return dist;
+}
+
+let currentEgo = null;
+let selectedSubNode = null;
+let hopDist = {};
+let ringCounts =[0, 0, 0, 0];
+
+function assignRings() {
+  const rings = [[], [], [],[]];
+  nodes.forEach(n => {
+    if (!currentEgo) {
+      n.ring = 3;
+    } else if (n.id === currentEgo) {
+      n.ring = 0;
+    } else {
+      const d = hopDist[n.id];
+      if (d === 1) n.ring = 1;
+      else if (d === 2) n.ring = 2;
+      else n.ring = 3;
+    }
+    n._targetRadius = RING_RADII[n.ring];
+    rings[n.ring].push(n);
+  });
+  ringCounts = rings.map(r => r.length);
+  nodes.forEach(n => {
+    if (currentEgo && n.id === currentEgo) { n.fx = 0; n.fy = 0; } 
+    else { n.fx = null; n.fy = null; }
+  });
+}
+
+function nodeDisplayRadius(d) {
+  if (!currentEgo) return Math.max(d.r || 10, 8);
+  if (d.id === currentEgo) return Math.max(d.r || 10, 14) * 1.4;
+  if (d.ring <= 1) return Math.max(d.r || 10, 6);
+  if (d.ring === 2) return Math.max((d.r || 10) * 0.8, 5);
+  return Math.max((d.r || 10) * 0.6, 4);
+}
+
+const container = document.getElementById('graph-container');
+const svg = d3.select(container).append('svg');
+const zoomG = svg.append('g');
+
+const ringLayer = zoomG.append('g').attr('class', 'ring-layer');
+const linkLayer = zoomG.append('g').attr('class', 'link-layer');
+const nodeLayer = zoomG.append('g').attr('class', 'node-layer');
+const labelLayer = zoomG.append('g').attr('class', 'label-layer');
+const ringLabelLayer = zoomG.append('g').attr('class', 'ring-label-layer');
+
+const zoom = d3.zoom().scaleExtent([0.16, 4]).on('zoom', (e) => { zoomG.attr('transform', e.transform); });
+svg.call(zoom);
+
+function resetZoom() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  const scale = Math.min(w, h) / 1350;
+  svg.transition().duration(500).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(w / 2, h / 2).scale(scale)
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MULTI-DEVICE BEHAVIOUR LAYER — additive; existing handlers left intact.
+// ══════════════════════════════════════════════════════════════════════════
+const MQ_PHONE = () => window.matchMedia('(max-width: 640px)').matches;
+const IS_TOUCH = window.matchMedia('(hover: none), (pointer: coarse)').matches
+              || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+if (IS_TOUCH) document.body.classList.add('is-touch');
+
+// The desktop fit divisor (1350) produces ~0.29 scale on a 390px-wide phone,
+// which the original scaleExtent floor of 0.3 silently clamped — the graph
+// could never actually fit. Fit to the larger axis on narrow screens and give
+// the pinch gesture real headroom in both directions.
+function fitGraph(animate) {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (!w || !h) return;
+  const phone = MQ_PHONE();
+  // Portrait phones: fit on width and accept vertical crop — the ring
+  // structure reads better cropped than shrunk past legibility.
+  const span = phone ? Math.max(Math.min(w, h), w * 0.92) : Math.min(w, h);
+  const scale = Math.max(0.16, Math.min(span / 1350, 3));
+  const t = d3.zoomIdentity.translate(w / 2, h / 2).scale(scale);
+  if (animate) svg.transition().duration(450).call(zoom.transform, t);
+  else svg.call(zoom.transform, t);
+}
+
+// Orientation change fires before the new dimensions settle; resize fires in
+// a burst during rotation. Debounce so the 450ms transition isn't restarted
+// twenty times mid-rotation.
+let _fitTimer = null;
+function scheduleFit() {
+  clearTimeout(_fitTimer);
+  _fitTimer = setTimeout(() => fitGraph(true), 220);
+}
+window.addEventListener('orientationchange', () => setTimeout(scheduleFit, 120));
+window.addEventListener('resize', scheduleFit);
+if (window.visualViewport) {
+  // iOS Safari changes visualViewport (not window) when the URL bar collapses
+  window.visualViewport.addEventListener('resize', scheduleFit);
+}
+
+// Touch devices have no hover, so ensure any latched tooltip is cleared on
+// every interaction rather than waiting for a mouseout that never arrives.
+if (IS_TOUCH) {
+  document.addEventListener('touchstart', () => {
+    const tt = document.getElementById('tooltip');
+    if (tt) tt.classList.remove('visible');
+  }, { passive: true });
+}
+
+// Initial fit, after fonts/layout settle
+setTimeout(() => fitGraph(false), 260);
+
+
+function renderRings() {
+  const data = currentEgo ? RING_RADII.slice(1) :[RING_RADII[3]];
+  const sel = ringLayer.selectAll('circle.ring-guide').data(data);
+  sel.exit().transition().duration(400).attr('opacity', 0).remove();
+  sel.enter().append('circle').attr('class', 'ring-guide')
+    .attr('cx', 0).attr('cy', 0).attr('fill', 'none')
+    .attr('stroke', 'var(--ring-guide)').attr('stroke-width', 1)
+    .attr('stroke-dasharray', '4,4').attr('opacity', 0)
+    .merge(sel).transition().duration(800)
+    .attr('r', d => d).attr('opacity', 1);
+  // Ring labels
+  ringLabelLayer.selectAll('*').remove();
+  if (currentEgo) {
+    [
+      { r: RING_RADII[1], text: 'DIRECT', count: ringCounts[1] },
+      { r: RING_RADII[2], text: '2-HOP',  count: ringCounts[2] },
+      { r: RING_RADII[3], text: 'OUTER',  count: ringCounts[3] }
+    ].forEach(l => {
+      ringLabelLayer.append('text').attr('class', 'ring-label')
+        .attr('x', 0).attr('y', -(l.r) + 13)
+        .text(`${l.text} (${l.count})`);
+    });
+  }
+}
+
+function linkBaseOpacity(d) {
+  const sn = lnode(d.source); const tn = lnode(d.target);
+  if (!sn || !tn) return 0;
+  if (!currentEgo) return 0.08; // global view: subtle but visible
+  const lo = Math.min(sn.ring, tn.ring); const hi = Math.max(sn.ring, tn.ring);
+  if (lo === 0) return 0.50;
+  if (lo === 1 && hi === 1) return 0.18;
+  if (lo === 1 && hi === 2) return 0.10;
+  if (lo === 2 && hi === 2) return 0.07;
+  return 0.03;
+}
+
+function linkHighlightOpacity(d, subId) {
+  const sId = lid(d.source); const tId = lid(d.target);
+  if (sId === subId || tId === subId) return 0.9;
+  if (sId === currentEgo || tId === currentEgo) return 0.06;
+  return 0.02;
+}
+
+function linkWidth(d) {
+  if (selectedSubNode) {
+    const sId = lid(d.source); const tId = lid(d.target);
+    if (sId === selectedSubNode || tId === selectedSubNode) return 2.5;
+  }
+  if (d.type === 'founded' || d.type === 'controlled') return 1.6;
+  return 1;
+}
+
+function computeLinkOpacity(d) {
+  return selectedSubNode ? linkHighlightOpacity(d, selectedSubNode) : linkBaseOpacity(d);
+}
+
+function renderLinks() {
+  const visLinks = links;
+  const sel = linkLayer.selectAll('line.link-line').data(visLinks, d => lid(d.source) + '::' + lid(d.target));
+  sel.exit().transition().duration(300).attr('opacity', 0).remove();
+  const enter = sel.enter().append('line').attr('class', 'link-line').attr('opacity', 0);
+  enter.merge(sel)
+    .attr('stroke', d => LINK_COLORS[d.type] || '#999')
+    .transition().duration(600)
+    .attr('stroke-width', d => linkWidth(d))
+    .attr('x1', d => lnode(d.source)?.x || 0).attr('y1', d => lnode(d.source)?.y || 0)
+    .attr('x2', d => lnode(d.target)?.x || 0).attr('y2', d => lnode(d.target)?.y || 0)
+    .attr('opacity', d => computeLinkOpacity(d));
+}
+
+function nodeOpacity(d) {
+  if (!currentEgo) return 0.90;
+  if (selectedSubNode) {
+    if (d.id === currentEgo || d.id === selectedSubNode) return 1;
+    if (adjacency[selectedSubNode]?.has(d.id)) return 0.8;
+    return 0.12;
+  }
+  if (d.ring === 0) return 1;
+  if (d.ring === 1) return 0.9;
+  if (d.ring === 2) return 0.55;
+  return 0.3;
+}
+
+function nodeStrokeColor(d) {
+  return getLayerStroke(d);
+}
+
+function nodeStrokeWidth(d) {
+  if (d.id === currentEgo || d.id === selectedSubNode || d.id === 'node_0') return 3;
+  return 1.5;
+}
+
+function renderNodes() {
+  const sel = nodeLayer.selectAll('circle.node-circle').data(nodes, d => d.id);
+  sel.exit().transition().duration(400).attr('opacity', 0).remove();
+  const enter = sel.enter().append('circle').attr('class', 'node-circle')
+    .attr('cx', d => d.x || 0).attr('cy', d => d.y || 0)
+    .attr('r', d => Math.max(d.r || 10, 6))
+    .on('click', (e, d) => { e.stopPropagation(); focusNode(d.id); })
+    .on('mouseenter', (e, d) => showTooltip(e, d))
+    .on('mouseleave', hideTooltip);
+  enter.merge(sel)
+    .attr('fill', d => getLayerFill(d))
+    .attr('stroke', d => nodeStrokeColor(d))
+    .attr('stroke-width', d => nodeStrokeWidth(d))
+    .attr('opacity', d => nodeOpacity(d))
+    .transition().duration(800)
+    .attr('cx', d => d.x).attr('cy', d => d.y)
+    .attr('r', d => nodeDisplayRadius(d));
+}
+
+function labelOpacity(d) {
+  if (!currentEgo) return 0.8;
+  if (selectedSubNode) {
+    if (d.id === currentEgo || d.id === selectedSubNode) return 1;
+    if (adjacency[selectedSubNode]?.has(d.id)) return 0.7;
+    return 0.08;
+  }
+  if (d.ring <= 1) return 1;
+  if (d.ring === 2) return 0.6;
+  return 0.25;
+}
+
+function labelFontSize(d) {
+  if (d.id === currentEgo) return '11px';
+  if (d.id === selectedSubNode) return '10px';
+  if (!currentEgo) return '7.5px';
+  if (d.ring === 1) return '9px';
+  if (d.ring === 2) return '7px';
+  return '6px';
+}
+
+function renderLabels() {
+  const sel = labelLayer.selectAll('text.node-label').data(nodes, d => d.id);
+  sel.exit().transition().duration(400).attr('opacity', 0).remove();
+  const enter = sel.enter().append('text').attr('class', 'node-label');
+  enter.merge(sel)
+    .attr('fill', d => {
+      if (d.id === 'node_0') return 'var(--node0)';
+      return (!currentEgo || d.ring <= 1 || d.id === selectedSubNode) ? 'var(--text)' : 'var(--text-dim)';
+    })
+    .attr('font-size', d => labelFontSize(d))
+    .text(d => d.label)
+    .attr('opacity', d => labelOpacity(d))
+    .transition().duration(800)
+    .attr('x', d => d.x)
+    .attr('y', d => d.y + nodeDisplayRadius(d) + 12);
+}
+
+const simLinkForce = d3.forceLink(links).id(d => d.id).strength(0.006).distance(200);
+
+const simulation = d3.forceSimulation(nodes)
+  .force('radial', d3.forceRadial(d => d._targetRadius || 580, 0, 0).strength(0.7))
+  .force('collide', d3.forceCollide(d => nodeDisplayRadius(d) + 2).iterations(2))
+  .force('charge', d3.forceManyBody().strength(-18).distanceMax(400))
+  .alphaDecay(0.02)
+  .velocityDecay(0.3)
+  .on('tick', () => {
+    nodeLayer.selectAll('circle.node-circle').attr('cx', d => d.x).attr('cy', d => d.y);
+    labelLayer.selectAll('text.node-label').attr('x', d => d.x).attr('y', d => d.y + nodeDisplayRadius(d) + 12);
+    linkLayer.selectAll('line.link-line')
+      .attr('x1', d => lnode(d.source)?.x || 0).attr('y1', d => lnode(d.source)?.y || 0)
+      .attr('x2', d => lnode(d.target)?.x || 0).attr('y2', d => lnode(d.target)?.y || 0);
+  });
+
+function restartSimulation() {
+  simulation.stop(); // prevent ghost forces
+  const isEgo = !!currentEgo;
+  simulation.force('radial', d3.forceRadial(d => d._targetRadius || 580, 0, 0).strength(isEgo ? 0.8 : 0.7));
+  simulation.force('charge', d3.forceManyBody().strength(isEgo ? -4 : -18).distanceMax(isEgo ? 250 : 400));
+  simulation.force('link', isEgo ? simLinkForce : null);
+  simulation.alpha(isEgo ? 0.6 : 0.8).restart();
+}
+
+function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function linkifyText(text) {
+  if (!text) return '';
+  let linkedText = text;
+  const sortedNodes = [...nodes].sort((a, b) => b.label.length - a.label.length);
+  sortedNodes.forEach(n => {
+    const regex = new RegExp(`\\b${escapeRegExp(n.label)}\\b`, 'gi');
+    linkedText = linkedText.replace(regex, `<span class="node-link" onclick="event.stopPropagation(); focusNode('${n.id}')">$&</span>`);
+  });
+  return linkedText;
+}
+
+window.focusNode = focusNode;
+function focusNode(id) {
+  if (!nodeMap[id]) return;
+
+  if (!currentEgo) {
+    // First time clicking a node: make it the center (Ego)
+    currentEgo = id;
+    selectedSubNode = null;
+    hopDist = bfs(id);
+    assignRings();
+    renderRings();
+    renderLinks();
+    renderNodes();
+    renderLabels();
+    restartSimulation();
+  } else if (currentEgo !== id) {
+    // We already have a center, and user clicked a secondary node. Select it instead of centering.
+    selectedSubNode = id;
+    applyHighlightState();
+  } else {
+    // User clicked the center node itself. Deselect any subnode.
+    selectedSubNode = null;
+    applyHighlightState();
+  }
+
+  // Handle timeline active state
+  document.querySelectorAll('.timeline-node').forEach(el => el.classList.remove('active'));
+  const tlNode = document.querySelector(`.timeline-node[data-nodeid="${id}"]`);
+  if (tlNode) {
+    tlNode.classList.add('active');
+    tlNode.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  openPanel(id);
+  updateStats();
+}
+
+function applyHighlightState() {
+  linkLayer.selectAll('line.link-line').transition().duration(300)
+    .attr('opacity', d => computeLinkOpacity(d)).attr('stroke-width', d => linkWidth(d));
+  nodeLayer.selectAll('circle.node-circle').transition().duration(300)
+    .attr('opacity', d => nodeOpacity(d)).attr('stroke', d => nodeStrokeColor(d)).attr('stroke-width', d => nodeStrokeWidth(d));
+  labelLayer.selectAll('text.node-label').transition().duration(300)
+    .attr('opacity', d => labelOpacity(d)).attr('fill', d => {
+      if (d.id === 'node_0') return 'var(--node0)';
+      return (!currentEgo || d.ring <= 1 || d.id === selectedSubNode) ? 'var(--text)' : 'var(--text-dim)';
+    }).attr('font-size', d => labelFontSize(d));
+}
+
+function resetView() {
+  currentEgo = null; selectedSubNode = null; hopDist = {};
+  const step = (2 * Math.PI) / nodes.length;
+  nodes.forEach((n, i) => {
+    n.fx = null; n.fy = null; n.ring = 3; n._targetRadius = 580;
+    const angle = i * step + (Math.random() - 0.5) * 0.3;
+    const r = 580 + (Math.random() - 0.5) * 30;
+    n.x = r * Math.cos(angle); n.y = r * Math.sin(angle);
+    n.vx = 0; n.vy = 0;
+  });
+  document.querySelectorAll('.timeline-node').forEach(el => el.classList.remove('active'));
+  assignRings(); renderRings(); renderLinks(); renderNodes(); renderLabels();
+  restartSimulation(); closePanel(); updateStats();
+  setTimeout(resetZoom, 100);
+}
+
+function openPanel(nodeId) {
+  const node = nodeMap[nodeId];
+  if (!node) return;
+  const panel = document.getElementById('side-panel');
+  const inner = document.getElementById('panel-inner');
+  const catMeta = CAT_META[node.cat] || CAT_META.network;
+  const layerMeta = LAYER_META[node.layer !== undefined ? node.layer : -1] || LAYER_META['-1'];
+  const layerBadgeHTML = node.layer !== undefined
+    ? `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;font-size:0.55rem;font-weight:700;letter-spacing:0.06em;background:${layerMeta.fill};color:#fff;opacity:0.9">${layerMeta.label}</span>`
+    : '';
+
+  const neighbors = Array.from(adjacency[nodeId] ||[]);
+  neighbors.sort((a, b) => {
+    const aIsEgo = (a === currentEgo) ? 0 : 1; const bIsEgo = (b === currentEgo) ? 0 : 1;
+    if (aIsEgo !== bIsEgo) return aIsEgo - bIsEgo;
+    return (nodeMap[a]?.ring || 9) - (nodeMap[b]?.ring || 9);
+  });
+
+  const connHtml = neighbors.map(nbId => {
+    const nbNode = nodeMap[nbId];
+    if (!nbNode) return '';
+    const link = links.find(l => {
+      const s = lid(l.source); const t = lid(l.target);
+      return (s === nodeId && t === nbId) || (t === nodeId && s === nbId);
+    });
+    const linkType = link ? (link.type || 'worked') : 'worked';
+    const linkLabel = link ? (link.label || '') : '';
+    const detailObj = getLinkDetail(nodeId, nbId);
+    const typeColor = LINK_COLORS[linkType] || '#999';
+    
+    let detailHtml = detailObj 
+      ? `<div class="conn-detail">
+          <div class="conn-detail-section"><span class="conn-detail-label">[WHAT]</span> <span class="conn-detail-text">${linkifyText(detailObj.what)}</span></div>
+          <div class="conn-detail-section"><span class="conn-detail-label">[HOW]</span> <span class="conn-detail-text">${linkifyText(detailObj.how)}</span></div>
+          <div class="conn-detail-section"><span class="conn-detail-label">[IMPACT]</span> <span class="conn-detail-text">${linkifyText(detailObj.impact)}</span></div>
+          ${detailObj.sources && detailObj.sources.length ? `<div class="conn-sources">${detailObj.sources.filter(s => s.u && s.u !== 'null').map(s => `<a class="conn-source-pill" href="${s.u}" target="_blank" rel="noopener noreferrer">${s.l}</a>`).join('')}</div>` : ''}
+        </div>`
+      : `<div class="conn-detail"><div style="color:red;font-size:10px;">DATA GAP</div></div>`;
+
+    return `
+      <div class="connection-item" onclick="this.classList.toggle('expanded')">
+        <span class="conn-type-badge" style="background:${typeColor}">${linkType}</span>
+        <div style="flex:1">
+          <div><strong class="target-node-link" onclick="event.stopPropagation(); focusNode('${nbId}')">${nbNode.label}</strong></div>
+          <div class="conn-label">${linkLabel}</div>
+          ${detailHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  const eventsHtml = (node.events ||[]).map(e =>
+    `<div class="event-item"><span class="event-year">${e.year}</span>${e.text}</div>`
+  ).join('');
+
+  // Add a "Make Center" button if viewing a secondary node
+  const centerBtnHtml = (currentEgo && currentEgo !== nodeId) 
+    ? `<button id="btn-make-ego" title="Re-center the archive around this node.">⌖ Set As Center Node</button>` 
+    : '';
+
+  // Appendix badge for appendix nodes
+  const isAppendix = (node.title || '').toLowerCase().includes('appendix') || (node.id || '').startsWith('appendix');
+  const appendixBadge = isAppendix ? `<span class="appendix-badge">Appendix</span>` : '';
+
+  // Sources field
+  const sourcesHtml = node.sources 
+    ? `<div class="panel-sources"><strong>SOURCES</strong><br>${node.sources}</div>` 
+    : '';
+
+  // ── Aggregate all verified source URLs from neighbor connections ──────────
+  const allSources = [];
+  const seenUrls = new Set();
+  neighbors.forEach(nbId => {
+    const d = getLinkDetail(nodeId, nbId);
+    if (d && d.sources) {
+      d.sources.forEach(s => {
+        if (s.u && s.u !== 'null' && !seenUrls.has(s.u)) {
+          seenUrls.add(s.u);
+          allSources.push(s);
+        }
+      });
+    }
+  });
+  const aggregatedSourcesHtml = allSources.length
+    ? `<div class="panel-section-title">Sources (${allSources.length})</div><div class="conn-sources" style="flex-direction:column;gap:3px;">${allSources.map(s => `<a class="conn-source-pill" href="${s.u}" target="_blank" rel="noopener noreferrer" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">${s.l}</a>`).join('')}</div>`
+    : '';
+
+  inner.innerHTML = `
+    <div id="panel-title">${node.title || node.label}${appendixBadge}</div>
+    <div><span id="panel-cat-badge" style="background:${catMeta.stroke}">${catMeta.label}</span>${layerBadgeHTML}</div>
+    ${centerBtnHtml}
+    <div id="panel-desc">${linkifyText(node.desc) || 'No description available.'}</div>
+    ${sourcesHtml}
+    ${eventsHtml ? `<div class="panel-section-title">Timeline</div>${eventsHtml}` : ''}
+    ${aggregatedSourcesHtml}
+    <div class="panel-section-title">Connections (${neighbors.length})</div>
+    ${connHtml || '<div style="font-size:0.68rem;color:var(--text-dim)">No connections.</div>'}
+  `;
+  
+  if (currentEgo && currentEgo !== nodeId) {
+    document.getElementById('btn-make-ego').addEventListener('click', () => {
+      currentEgo = null; // Reset ego to force the re-center logic
+      focusNode(nodeId);
+    });
+  }
+
+  panel.classList.add('open');
+}
+
+function closePanel() { document.getElementById('side-panel').classList.remove('open'); }
+
+document.getElementById('panel-close').addEventListener('click', () => {
+  closePanel();
+  if (selectedSubNode) { selectedSubNode = null; applyHighlightState(); }
+});
+
+const tooltip = document.getElementById('tooltip');
+function showTooltip(event, d) {
+  const cm = CAT_META[d.cat] || CAT_META.network;
+  tooltip.querySelector('.tt-title').textContent = d.label;
+  tooltip.querySelector('.tt-cat').textContent = cm.label;
+  tooltip.style.left = (event.clientX + 14) + 'px';
+  tooltip.style.top = (event.clientY - 10) + 'px';
+  tooltip.classList.add('visible');
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+
+const searchInput = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { searchResults.style.display = 'none'; return; }
+  const matches = nodes.filter(n => n.label.toLowerCase().includes(q) || (n.title || '').toLowerCase().includes(q) || (n.desc || '').toLowerCase().includes(q)).slice(0, 12);
+  if (matches.length === 0) { searchResults.style.display = 'none'; return; }
+  searchResults.innerHTML = matches.map(n => {
+    const cm = CAT_META[n.cat] || CAT_META.network;
+    return `<div class="search-item" data-id="${n.id}">${n.label}<span class="cat-badge" style="background:${cm.stroke}; float:right; font-size:9px; padding:2px; color:#fff; border-radius:2px;">${cm.label}</span></div>`;
+  }).join('');
+  searchResults.style.display = 'block';
+  searchResults.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', () => { focusNode(el.dataset.id); searchInput.value = ''; searchResults.style.display = 'none'; });
+  });
+});
+searchInput.addEventListener('blur', () => { setTimeout(() => { searchResults.style.display = 'none'; }, 200); });
+
+function updateStats() {
+  const badge = document.getElementById('stats-badge');
+  if (!badge) return; // Guaranteed safe
+  if (currentEgo) {
+    const egoLabel = nodeMap[currentEgo]?.label || currentEgo;
+    badge.textContent = `EGO: ${egoLabel.toUpperCase()} \u00b7 ${ringCounts[1]} direct \u00b7 ${ringCounts[2]} secondary`;
+  } else {
+    badge.textContent = `${nodes.length} NODES · ${links.length} LINKS`;
+  }
+}
+
+function renderTimeline() {
+  const ledger = document.getElementById('timeline-ledger');
+  ledger.innerHTML = '';
+  let allEvents =[];
+  nodes.forEach(n => {
+    if (n.events && n.events.length > 0) {
+      n.events.forEach(e => {
+        let parsedYear = parseInt(e.year.substring(0,4));
+        if(isNaN(parsedYear)) parsedYear = n.year || 9999;
+        allEvents.push({ ...e, nodeId: n.id, parsedYear, nodeLabel: n.label });
+      });
+    } else if (n.year) {
+      allEvents.push({ year: n.year.toString(), text: n.title || n.label, nodeId: n.id, parsedYear: n.year, nodeLabel: n.label });
+    }
+  });
+  allEvents.sort((a, b) => a.parsedYear - b.parsedYear);
+  allEvents.forEach((ev, idx) => {
+    const btn = document.createElement('div');
+    btn.className = 'timeline-node'; btn.dataset.nodeid = ev.nodeId;
+    let shortText = ev.text.length > 60 ? ev.text.substring(0, 57) + '...' : ev.text;
+    btn.innerHTML = `<span class="year">${ev.year}</span> <span class="tl-label">[${ev.nodeLabel}]</span> ${shortText}`;
+    btn.onclick = () => focusNode(ev.nodeId);
+    ledger.appendChild(btn);
+  });
+}
+
+document.getElementById('btn-reset').addEventListener('click', resetView);
+document.getElementById('btn-zoom-in').addEventListener('click', () => { svg.transition().duration(300).call(zoom.scaleBy, 1.4); });
+document.getElementById('btn-zoom-out').addEventListener('click', () => { svg.transition().duration(300).call(zoom.scaleBy, 0.7); });
+svg.on('click', (e) => { if (e.target === svg.node() || e.target.tagName === 'svg') { closePanel(); document.querySelectorAll('.timeline-node').forEach(el => el.classList.remove('active')); } });
+svg.on('contextmenu', (e) => {
+  e.preventDefault();
+  // right-click on a node sets it as ego center
+  const target = e.target;
+  if (target && target.classList.contains('node-circle')) {
+    const d = d3.select(target).datum();
+    if (d && d.id) { currentEgo = null; focusNode(d.id); }
+  }
+});
+
+function applyFilter(cat) {
+  
+document.querySelectorAll('.filter-btn[data-cat]').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.filter-btn[data-cat="${cat}"]`);
+  if (btn) btn.classList.add('active');
+  if (!currentEgo) {
+    nodeLayer.selectAll('circle.node-circle').transition().duration(300).attr('opacity', d => (cat === 'all' || d.cat === cat) ? 0.85 : 0.12);
+    labelLayer.selectAll('text.node-label').transition().duration(300).attr('opacity', d => (cat === 'all' || d.cat === cat) ? 0.8 : 0.06);
+  }
+}
+
+// Filter bar — event delegation on container (buttons are generated at runtime from CAT_META)
+document.getElementById('filter-bar').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn[data-cat]');
+  if (btn) applyFilter(btn.dataset.cat);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+function init() {
+  // Sync header title from graphTitle variable
+  const titleEl = document.getElementById('header-title');
+  if (titleEl) titleEl.textContent = graphTitle;
+  document.title = graphTitle;
+
+  const step = (2 * Math.PI) / nodes.length;
+  nodes.forEach((n, i) => {
+    const angle = i * step + (Math.random() - 0.5) * 0.3;
+    const r = 580 + (Math.random() - 0.5) * 30;
+    n.x = r * Math.cos(angle); n.y = r * Math.sin(angle);
+    n._targetRadius = 580; n.ring = 3;
+  });
+  renderTimeline(); renderRings(); renderNodes(); renderLabels(); updateStats(); restartSimulation();
+  setTimeout(resetZoom, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GRAPH EDITOR ENGINE  v2 — add · edit · delete · import · export
+// All functions share closure scope with nodes, links, nodeMap, adjacency,
+// simulation, simLinkForce, currentEgo, selectedSubNode, etc.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Master rebuild: call this after ANY mutation to nodes[] or links[].
+ * Handles D3's object-mutation of source/target, validates endpoints,
+ * repopulates nodeMap + adjacency, updates the simulation, and re-renders.
+ */
+function rebuildGraphData() {
+  // 1. Rebuild nodeMap (const object — clear keys then repopulate)
+  Object.keys(nodeMap).forEach(k => delete nodeMap[k]);
+  nodes.forEach(n => {
+    nodeMap[n.id] = n;
+    if (n.ring === undefined) n.ring = 3;
+    if (n._targetRadius === undefined) n._targetRadius = 580;
+  });
+
+  // 2. Normalise D3-mutated link refs (object → string ID) so validation is safe
+  links.forEach(l => {
+    if (l.source && typeof l.source === 'object') l.source = l.source.id;
+    if (l.target && typeof l.target === 'object') l.target = l.target.id;
+  });
+
+  // 3. Remove links whose endpoints no longer exist
+  for (let i = links.length - 1; i >= 0; i--) {
+    if (!nodeMap[links[i].source] || !nodeMap[links[i].target]) links.splice(i, 1);
+  }
+
+  // 4. Rebuild adjacency (const object — clear keys then repopulate)
+  Object.keys(adjacency).forEach(k => delete adjacency[k]);
+  nodes.forEach(n => { adjacency[n.id] = new Set(); });
+  links.forEach(l => {
+    adjacency[l.source].add(l.target);
+    adjacency[l.target].add(l.source);
+  });
+
+  // 5. Reset interaction state
+  currentEgo = null; selectedSubNode = null; hopDist = {};
+  document.querySelectorAll('.timeline-node').forEach(el => el.classList.remove('active'));
+
+  // 6. Update D3 simulation (simulation.nodes re-inits new nodes; simLinkForce.links re-processes edges)
+  simulation.nodes(nodes);
+  simLinkForce.links(links);
+
+  // 7. Re-render everything
+  assignRings();
+  renderTimeline(); renderRings();
+  renderNodes(); renderLabels(); renderLinks();
+  updateStats(); restartSimulation();
+  closePanel();
+  autosave();
+}
+
+// ── ADD NODE ────────────────────────────────────────────────
+function editorAddNode() {
+  const raw = document.getElementById('en-id').value.trim();
+  const id  = raw.replace(/[\s\/\\'"]+/g, '_');
+  const label = document.getElementById('en-label').value.trim();
+  const status = document.getElementById('editor-node-status');
+
+  if (!id)    { editorStatus(status, '⚠ Node ID is required.', 'err'); return; }
+  if (!label) { editorStatus(status, '⚠ Display Label is required.', 'err'); return; }
+  if (nodeMap[id]) { editorStatus(status, `⚠ ID "${id}" already exists.`, 'err'); return; }
+
+  const cat   = document.getElementById('en-cat').value;
+  const r     = Math.max(5, Math.min(32, parseInt(document.getElementById('en-r').value) || 12));
+  const year  = parseInt(document.getElementById('en-year').value) || undefined;
+  const layer = parseInt(document.getElementById('en-layer').value);
+  const title = document.getElementById('en-title').value.trim() || label;
+  const desc  = document.getElementById('en-desc').value.trim();
+
+  // Place node on the outer ring at a random angle
+  const angle = Math.random() * 2 * Math.PI;
+  const newNode = {
+    id, label, cat, r, year, layer: isNaN(layer) ? 5 : layer,
+    title, desc, events: JSON.parse(JSON.stringify(_editingNodeEvents)),
+    x: 580 * Math.cos(angle), y: 580 * Math.sin(angle),
+    vx: 0, vy: 0, ring: 3, _targetRadius: 580
+  };
+  nodes.push(newNode);
+
+  // Clear form fields
+  ['en-id','en-label','en-title','en-desc'].forEach(i => { document.getElementById(i).value = ''; });
+  document.getElementById('en-year').value = '';
+  document.getElementById('en-r').value = '12';
+  document.getElementById('en-layer').value = '5';
+  // Clear events editor
+  _editingNodeEvents = [];
+  renderEventsList();
+
+  rebuildGraphData();
+  editorRefreshNodesList();
+  editorRefreshLinkSelects();
+  editorStatus(status, `✓ "${label}" added to graph.`, 'ok');
+}
+
+// ── DELETE NODE ─────────────────────────────────────────────
+function editorDeleteNode(nodeId) {
+  const n = nodeMap[nodeId];
+  if (!n) return;
+  if (!confirm(`Delete "${n.label}"?\n\nThis will also remove all ${(adjacency[nodeId]?.size||0)} connections to this node.`)) return;
+  nodes.splice(nodes.findIndex(x => x.id === nodeId), 1);
+  // Remove all links involving this node
+  for (let i = links.length - 1; i >= 0; i--) {
+    const s = lid(links[i].source); const t = lid(links[i].target);
+    if (s === nodeId || t === nodeId) links.splice(i, 1);
+  }
+  rebuildGraphData();
+  editorRefreshNodesList();
+  editorRefreshLinkSelects();
+  editorRefreshLinksList();
+}
+
+// ── ADD LINK ────────────────────────────────────────────────
+function editorAddLink() {
+  const source = document.getElementById('el-source').value;
+  const target = document.getElementById('el-target').value;
+  const type   = (document.getElementById('el-type').value || '').trim().toLowerCase() || 'worked';
+  const label  = document.getElementById('el-label').value.trim();
+  const status = document.getElementById('editor-link-status');
+
+  if (!source || !target) { editorStatus(status, '⚠ Both nodes are required.', 'err'); return; }
+  if (source === target)  { editorStatus(status, '⚠ Source and Target must differ.', 'err'); return; }
+  if (!nodeMap[source] || !nodeMap[target]) { editorStatus(status, '⚠ Unknown node ID.', 'err'); return; }
+
+  // Auto-register custom type with neutral colour and add to datalist suggestions
+  if (type && !LINK_REGISTRY[type]) {
+    LINK_REGISTRY[type] = '#6e6b68';
+    const dl = document.getElementById('el-type-datalist');
+    if (dl) dl.innerHTML += `<option value="${escHtml(type)}">`;
+  }
+
+  // Duplicate check (undirected: A→B same as B→A)
+  const dup = links.find(l => {
+    const s = lid(l.source); const t = lid(l.target);
+    return (s === source && t === target) || (s === target && t === source);
+  });
+  if (dup) { editorStatus(status, '⚠ A link between these nodes already exists.', 'err'); return; }
+
+  links.push({ source, target, type, label });
+  document.getElementById('el-label').value = '';
+
+  rebuildGraphData();
+  editorRefreshLinksList();
+  editorStatus(status, `✓ Link added: ${nodeMap[source]?.label} → ${nodeMap[target]?.label}`, 'ok');
+}
+
+// ── DELETE LINK ─────────────────────────────────────────────
+function editorDeleteLink(source, target) {
+  const idx = links.findIndex(l => {
+    const s = lid(l.source); const t = lid(l.target);
+    return (s === source && t === target) || (s === target && t === source);
+  });
+  if (idx !== -1) links.splice(idx, 1);
+  rebuildGraphData();
+  editorRefreshLinksList();
+}
+
+// ── STATUS HELPER ────────────────────────────────────────────
+function editorStatus(el, msg, type) {
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? '#1a6a1a' : '#a01010';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// ── REFRESH: NODES LIST ──────────────────────────────────────
+function editorRefreshNodesList() {
+  const q = (document.getElementById('editor-node-search')?.value || '').toLowerCase();
+  const filtered = nodes.filter(n =>
+    !q || n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q) ||
+    (n.cat||'').toLowerCase().includes(q)
+  );
+  const count = document.getElementById('editor-node-count');
+  if (count) count.textContent = `${filtered.length} / ${nodes.length} nodes`;
+  const list = document.getElementById('editor-nodes-list');
+  if (!list) return;
+  list.innerHTML = filtered.map(n => {
+    const cm = CAT_META[n.cat] || CAT_META.network;
+    const conns = adjacency[n.id]?.size || 0;
+    const isEditing = _editingNodeId === n.id;
+    const rowBg = isEditing ? 'background:rgba(30,58,95,0.08);outline:2px solid var(--accent);outline-offset:-2px;' : '';
+    return `<div class="editor-list-item" style="${rowBg}">
+      <span class="editor-item-label">${escHtml(n.label)}</span>
+      <span class="editor-cat-badge" style="background:${cm.stroke}">${cm.label}</span>
+      <span class="editor-item-id">${escHtml(n.id)}</span>
+      <span class="editor-count" style="min-width:64px">${n.year||'—'} · ${conns} links</span>
+      <button class="editor-btn secondary" style="padding:3px 9px;font-size:0.6rem"
+        data-action="edit-node" data-id="${escHtml(n.id)}">✏ Edit</button>
+      <button class="editor-btn danger" style="padding:3px 9px;font-size:0.6rem"
+        data-action="delete-node" data-id="${escHtml(n.id)}">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ── REFRESH: LINK SELECT DROPDOWNS ──────────────────────────
+function editorRefreshLinkSelects() {
+  const sorted = [...nodes].sort((a, b) => a.label.localeCompare(b.label));
+  const opts = sorted.map(n => `<option value="${escAttr(n.id)}">${escHtml(n.label)}</option>`).join('');
+  const src = document.getElementById('el-source');
+  const tgt = document.getElementById('el-target');
+  if (src) src.innerHTML = opts;
+  if (tgt) tgt.innerHTML = opts;
+}
+
+// ── REFRESH: LINKS LIST (with inline edit support) ───────────
+const LINK_TYPE_OPTS = Object.keys(LINK_REGISTRY).map(t => `<option value="${t}">`).join('');
+
+function editorRefreshLinksList() {
+  const q = (document.getElementById('editor-link-search')?.value || '').toLowerCase();
+  const filtered = links.filter(l => {
+    const s = lid(l.source); const t = lid(l.target);
+    const sL = nodeMap[s]?.label || s;
+    const tL = nodeMap[t]?.label || t;
+    return !q || (sL + tL + (l.type||'') + (l.label||'')).toLowerCase().includes(q);
+  });
+  const count = document.getElementById('editor-link-count');
+  if (count) count.textContent = `${filtered.length} / ${links.length} links`;
+  const list = document.getElementById('editor-links-list');
+  if (!list) return;
+
+  list.innerHTML = filtered.map(l => {
+    const s = lid(l.source); const t = lid(l.target);
+    const key = s + '::' + t;
+    const sL = escHtml(nodeMap[s]?.label || s);
+    const tL = escHtml(nodeMap[t]?.label || t);
+    const color = LINK_COLORS[l.type] || '#888';
+
+    if (_editingLinkKey === key) {
+      // ── Inline edit row ───────────────────────────────────────
+      return `<div class="editor-list-item" style="flex-wrap:wrap;gap:6px;background:rgba(30,58,95,0.08);outline:2px solid var(--accent);outline-offset:-2px">
+        <span style="font-size:0.68rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${sL} ─▶ ${tL}</span>
+        <input class="editor-input" id="el-edit-type" list="el-type-datalist"
+          value="${escHtml(l.type||'')}" placeholder="edge type" autocomplete="off"
+          style="width:130px;font-size:0.65rem;padding:3px 6px">
+        <input class="editor-input" id="el-edit-label" value="${escHtml(l.label||'')}" placeholder="edge label" style="width:140px;font-size:0.65rem">
+        <button class="editor-btn" style="padding:3px 9px;font-size:0.6rem"
+          data-action="save-edit-link" data-src="${escHtml(s)}" data-tgt="${escHtml(t)}">✓ Save</button>
+        <button class="editor-btn secondary" style="padding:3px 9px;font-size:0.6rem"
+          data-action="cancel-edit-link">✕</button>
+      </div>`;
+    }
+
+    return `<div class="editor-list-item">
+      <span class="editor-item-label" style="max-width:180px" title="${sL}">${sL}</span>
+      <span class="editor-link-arrow" style="color:${color}">─${escHtml(l.type||'')}─▶</span>
+      <span class="editor-item-label" style="max-width:180px" title="${tL}">${tL}</span>
+      <span class="editor-item-id" style="flex:1;max-width:160px;overflow:hidden;text-overflow:ellipsis">${escHtml(l.label||'')}</span>
+      <button class="editor-btn secondary" style="padding:3px 8px;font-size:0.6rem"
+        data-action="edit-link" data-src="${escHtml(s)}" data-tgt="${escHtml(t)}">✏</button>
+      <button class="editor-btn danger" style="padding:3px 9px;font-size:0.6rem"
+        data-action="delete-link" data-src="${escHtml(s)}" data-tgt="${escHtml(t)}">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ── ESCAPE HELPERS ───────────────────────────────────────────
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// ── NODE EDIT MODE ───────────────────────────────────────────
+let _editingNodeId = null;
+
+function editorStartEditNode(nodeId) {
+  const n = nodeMap[nodeId];
+  if (!n) return;
+  _editingNodeId = nodeId;
+
+  // Pre-fill all fields with current node data
+  const idEl = document.getElementById('en-id');
+  idEl.value = n.id;
+  idEl.readOnly = true;          // Can't rename the ID — it's the graph key
+  idEl.style.opacity = '0.45';
+  idEl.title = 'Node ID cannot be changed (it is the graph key). Delete and re-add to rename.';
+  document.getElementById('en-label').value  = n.label  || '';
+  document.getElementById('en-cat').value    = n.cat    || 'network';
+  document.getElementById('en-r').value      = n.r      || 12;
+  document.getElementById('en-year').value   = n.year   || '';
+  document.getElementById('en-layer').value  = n.layer  !== undefined ? n.layer : 5;
+  document.getElementById('en-title').value  = n.title  || '';
+  document.getElementById('en-desc').value   = n.desc   || '';
+
+  document.getElementById('editor-node-form-title').textContent = `✏ Editing: ${n.label}`;
+  document.getElementById('editor-add-node-btn').textContent    = '✓ Save Changes';
+  document.getElementById('editor-cancel-edit-btn').style.display = '';
+  // Load this node's events into the transient array
+  _editingNodeEvents = JSON.parse(JSON.stringify(n.events || []));
+  renderEventsList();
+  editorRefreshNodesList();   // Highlight the row being edited
+}
+
+function editorCancelEditNode() {
+  _editingNodeId = null;
+  ['en-id','en-label','en-title','en-desc'].forEach(i => { document.getElementById(i).value = ''; });
+  document.getElementById('en-year').value  = '';
+  document.getElementById('en-r').value     = '12';
+  document.getElementById('en-layer').value = '5';
+  const idEl = document.getElementById('en-id');
+  idEl.readOnly = false; idEl.style.opacity = ''; idEl.title = '';
+  document.getElementById('editor-node-form-title').textContent      = '+ Add New Node';
+  document.getElementById('editor-add-node-btn').textContent         = '+ Add Node';
+  document.getElementById('editor-cancel-edit-btn').style.display    = 'none';
+  document.getElementById('editor-node-status').textContent          = '';
+  // Clear events editor
+  _editingNodeEvents = [];
+  renderEventsList();
+  editorRefreshNodesList();
+}
+
+function editorUpdateNode() {
+  const n = nodeMap[_editingNodeId];
+  const status = document.getElementById('editor-node-status');
+  if (!n) { editorCancelEditNode(); return; }
+
+  const label = document.getElementById('en-label').value.trim();
+  if (!label) { editorStatus(status, '⚠ Display Label is required.', 'err'); return; }
+
+  // Update metadata in-place — preserves position, connections, events
+  n.label  = label;
+  n.cat    = document.getElementById('en-cat').value;
+  n.r      = Math.max(5, Math.min(32, parseInt(document.getElementById('en-r').value) || 12));
+  n.year   = parseInt(document.getElementById('en-year').value) || undefined;
+  const layer = parseInt(document.getElementById('en-layer').value);
+  n.layer  = isNaN(layer) ? 5 : layer;
+  n.title  = document.getElementById('en-title').value.trim() || label;
+  n.desc   = document.getElementById('en-desc').value.trim();
+  n.events = JSON.parse(JSON.stringify(_editingNodeEvents));
+
+  const savedLabel = label;
+  editorCancelEditNode();          // Resets form and _editingNodeId
+  rebuildGraphData();
+  editorRefreshNodesList();
+  editorStatus(document.getElementById('editor-node-status'), `✓ "${savedLabel}" updated.`, 'ok');
+}
+
+// ── LINK INLINE EDIT ─────────────────────────────────────────
+let _editingLinkKey = null;
+
+function editorStartEditLink(source, target) {
+  _editingLinkKey = source + '::' + target;
+  editorRefreshLinksList();
+  // Scroll the editing row into view after render
+  setTimeout(() => {
+    const list = document.getElementById('editor-links-list');
+    const editing = list?.querySelector('[style*="outline"]');
+    if (editing) editing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 60);
+}
+
+function editorSaveEditLink(source, target) {
+  const l = links.find(x => {
+    const s = lid(x.source); const t = lid(x.target);
+    return (s === source && t === target) || (s === target && t === source);
+  });
+  if (l) {
+    const typeEl  = document.getElementById('el-edit-type');
+    const labelEl = document.getElementById('el-edit-label');
+    if (typeEl) {
+      const newType = (typeEl.value || '').trim().toLowerCase() || l.type;
+      if (newType && !LINK_REGISTRY[newType]) {
+        LINK_REGISTRY[newType] = '#6e6b68';
+        const dl = document.getElementById('el-type-datalist');
+        if (dl) dl.innerHTML += `<option value="${escHtml(newType)}">`;
+      }
+      l.type = newType;
+    }
+    if (labelEl) l.label = labelEl.value.trim();
+    // Normalise any D3 object refs before rebuild
+    if (l.source && typeof l.source === 'object') l.source = l.source.id;
+    if (l.target && typeof l.target === 'object') l.target = l.target.id;
+  }
+  _editingLinkKey = null;
+  rebuildGraphData();
+  editorRefreshLinksList();
+}
+
+function editorCancelEditLink() {
+  _editingLinkKey = null;
+  editorRefreshLinksList();
+}
+
+// ── IMPORT JSON ──────────────────────────────────────────────
+function editorImportJSON() {
+  const raw    = document.getElementById('editor-import-text')?.value.trim();
+  const status = document.getElementById('editor-import-status');
+  if (!raw) { editorStatus(status, '⚠ Paste JSON into the field first.', 'err'); return; }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch(e) { editorStatus(status, '⚠ Invalid JSON — ' + e.message, 'err'); return; }
+
+  if (!Array.isArray(data.nodes) || !Array.isArray(data.links)) {
+    editorStatus(status, '⚠ JSON must have "nodes" and "links" arrays.', 'err'); return;
+  }
+  if (!data.nodes.length) { editorStatus(status, '⚠ nodes array is empty.', 'err'); return; }
+
+  const _importIds = data.nodes.map(n => String(n.id));
+  const _dupes = _importIds.filter((id, i) => _importIds.indexOf(id) !== i);
+  if (_dupes.length) { editorStatus(status, `⚠ Duplicate IDs in import: ${_dupes.join(', ')}`, 'err'); return; }
+
+  if (!confirm(
+    `Import ${data.nodes.length} nodes and ${data.links.length} links?\n\n` +
+    `⚠ This REPLACES the entire current graph (${nodes.length} nodes, ${links.length} links).`
+  )) return;
+
+  // Replace nodes in-place (keep the same array reference)
+  nodes.length = 0;
+  data.nodes.forEach(n => {
+    const angle = Math.random() * 2 * Math.PI;
+    nodes.push(Object.assign({
+      x: 580 * Math.cos(angle), y: 580 * Math.sin(angle),
+      vx: 0, vy: 0, ring: 3, _targetRadius: 580, events: []
+    }, n, { events: n.events || [] }));
+  });
+
+  // Replace links in-place
+  links.length = 0;
+  data.links.forEach(l => links.push({
+    source: String(l.source), target: String(l.target),
+    type:   l.type  || 'worked',
+    label:  l.label || ''
+  }));
+
+  rebuildGraphData();
+  editorRefreshNodesList();
+  editorRefreshLinkSelects();
+  editorRefreshLinksList();
+  document.getElementById('editor-import-text').value = '';
+  editorStatus(status, `✓ Imported ${nodes.length} nodes, ${links.length} links.`, 'ok');
+}
+
+// ── TOGGLE EDITOR MODAL ──────────────────────────────────────
+function toggleEditor() {
+  const modal  = document.getElementById('editor-modal');
+  const isOpen = !modal.classList.contains('open');
+  modal.classList.toggle('open', isOpen);
+  if (isOpen) {
+    editorRefreshNodesList();
+    editorRefreshLinkSelects();
+    editorRefreshLinksList();
+  }
+}
+
+// ── WIRE UP: TABS ────────────────────────────────────────────
+document.querySelectorAll('.editor-tab[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.editor-tab[data-tab]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.editor-tab-content').forEach(c => c.classList.remove('active'));
+    const pane = document.getElementById(`editor-tab-${tab}`);
+    if (pane) pane.classList.add('active');
+    if (tab === 'nodes') editorRefreshNodesList();
+    if (tab === 'links') { editorRefreshLinkSelects(); editorRefreshLinksList(); }
+    if (tab === 'details') { editorRefreshDetailSelects(); editorRefreshDetailsList(); editorLoadLinkDetail(); }
+    if (tab === 'export') {
+      const inp = document.getElementById('graph-title-input');
+      if (inp) inp.value = graphTitle;
+    }
+  });
+});
+
+// ── WIRE UP: BUTTONS ─────────────────────────────────────────
+document.getElementById('editor-close-btn').addEventListener('click', toggleEditor);
+document.getElementById('editor-overlay').addEventListener('click', toggleEditor);
+
+// Smart Add/Update button — branches on whether we're in edit mode
+document.getElementById('editor-add-node-btn').addEventListener('click', () => {
+  if (_editingNodeId) editorUpdateNode(); else editorAddNode();
+});
+document.getElementById('editor-cancel-edit-btn').addEventListener('click', editorCancelEditNode);
+document.getElementById('editor-add-link-btn').addEventListener('click', editorAddLink);
+document.getElementById('editor-node-search').addEventListener('input', editorRefreshNodesList);
+document.getElementById('editor-link-search').addEventListener('input', editorRefreshLinksList);
+
+// ── WIRE UP: EXPORT ──────────────────────────────────────────
+document.getElementById('editor-export-generate-btn').addEventListener('click', () => {
+  const payload = {
+    nodes: nodes.map(n => ({
+      id: n.id, label: n.label, cat: n.cat, r: n.r,
+      year: n.year, layer: n.layer, title: n.title, desc: n.desc,
+      events: n.events || []
+    })),
+    links: links.map(l => ({
+      source: lid(l.source), target: lid(l.target),
+      type: l.type, label: l.label
+    })),
+    linkDetails: JSON.parse(JSON.stringify(LINK_DETAIL_MAP))
+  };
+  document.getElementById('editor-export-text').value = JSON.stringify(payload, null, 2);
+});
+
+document.getElementById('editor-export-copy-btn').addEventListener('click', () => {
+  const ta = document.getElementById('editor-export-text');
+  if (!ta.value) { alert('Click "Generate" first.'); return; }
+  navigator.clipboard.writeText(ta.value)
+    .then(() => alert('Copied to clipboard ✓'))
+    .catch(() => { ta.select(); document.execCommand('copy'); alert('Copied ✓'); });
+});
+
+document.getElementById('editor-export-download-btn').addEventListener('click', () => {
+  const ta = document.getElementById('editor-export-text');
+  if (!ta.value) { alert('Click "Generate" first.'); return; }
+  const blob = new Blob([ta.value], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'graph-data-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+
+// ── WIRE UP: IMPORT ──────────────────────────────────────────
+document.getElementById('editor-import-btn').addEventListener('click', editorImportJSON);
+
+// ── INLINE TITLE EDIT ─────────────────────────────────────────
+// Toggle contenteditable on the header title div on click.
+// Blur/Enter commits; Escape restores. Syncs graphTitle + export-tab input.
+(function() {
+  const el = document.getElementById('header-title');
+  el.title = 'Click to rename';
+
+  el.addEventListener('click', () => {
+    if (el.contentEditable === 'true') return; // already editing
+    el.contentEditable = 'true';
+    el.focus();
+    // Select all so the user can just start typing
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel && (sel.removeAllRanges(), sel.addRange(range));
+  });
+
+  el.addEventListener('blur', () => {
+    el.contentEditable = 'false';
+    const val = el.textContent.trim();
+    graphTitle = val || 'Graph Canvas';
+    el.textContent = graphTitle;
+    document.title = graphTitle;
+    const inp = document.getElementById('graph-title-input');
+    if (inp) inp.value = graphTitle;
+    autosave();
+  });
+
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    if (e.key === 'Escape') { el.textContent = graphTitle; el.blur(); }
+  });
+
+  // Intercept paste — strip HTML, insert plain text only
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text.replace(/\n/g, ' '));
+  });
+})();
+
+// ── CLEAR ALL / NEW GRAPH ─────────────────────────────────────
+document.getElementById('editor-clear-all-btn').addEventListener('click', () => {
+  if (!confirm('Clear all nodes, links, and details?\nThis cannot be undone.')) return;
+  nodes.length = 0;
+  links.length = 0;
+  Object.keys(LINK_DETAIL_MAP).forEach(k => delete LINK_DETAIL_MAP[k]);
+  currentEgo = null;
+  selectedSubNode = null;
+  rebuildGraphData();
+  const status = document.getElementById('editor-import-status');
+  editorStatus(status, '✓ Graph cleared.', 'ok');
+  autosave();
+});
+
+// ── SVG EXPORT ────────────────────────────────────────────────
+function exportSVG() {
+  const svgEl = document.querySelector('#graph-container svg');
+  if (!svgEl) return;
+
+  const rect  = svgEl.getBoundingClientRect();
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('width',  Math.round(rect.width));
+  clone.setAttribute('height', Math.round(rect.height));
+  clone.setAttribute('xmlns',  'http://www.w3.org/2000/svg');
+
+  // Background
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%');
+  bg.setAttribute('fill', '#f2f0e9');
+  clone.insertBefore(bg, clone.firstChild);
+
+  // Inline CSS: resolve var()s used in SVG attrs and preserve class-based styles
+  const defs    = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  styleEl.textContent = [
+    ':root {',
+    '  --text: #1c1c1b; --text-dim: #6e6b68;',
+    '  --ring-guide: rgba(28,28,27,0.08); --node0: #8b0000;',
+    '}',
+    '.ring-label {',
+    '  font-family: "DM Sans", sans-serif; font-size: 9px; font-weight: 700;',
+    '  fill: #6e6b68; text-anchor: middle; letter-spacing: 0.08em;',
+    '  text-transform: uppercase; opacity: 0.6;',
+    '}',
+    '.node-label { font-family: "DM Sans", sans-serif; font-weight: 600; }',
+    '.link-line  { fill: none; }',
+  ].join('\n');
+  defs.appendChild(styleEl);
+  clone.insertBefore(defs, clone.firstChild);
+
+  const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    new XMLSerializer().serializeToString(clone);
+
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  const safe = graphTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'graph';
+  a.download = `${safe}-${new Date().toISOString().slice(0,10)}.svg`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+document.getElementById('editor-download-svg-btn').addEventListener('click', exportSVG);
+
+function editorMergeJSON() {
+  const raw    = document.getElementById('editor-import-text')?.value.trim();
+  const status = document.getElementById('editor-import-status');
+  if (!raw) { editorStatus(status, '⚠ Paste JSON first.', 'err'); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { editorStatus(status, '⚠ Invalid JSON.', 'err'); return; }
+
+  const inNodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+  const inLinks = Array.isArray(parsed.links) ? parsed.links : [];
+
+  // Deduplicate by node id
+  const existingIds = new Set(nodes.map(n => n.id));
+  // Deduplicate links by source::target (order-insensitive)
+  const existingPairs = new Set(
+    links.map(l => { const s = lid(l.source), t = lid(l.target); return s < t ? s+'::'+t : t+'::'+s; })
+  );
+
+  let addedNodes = 0, skippedNodes = 0, addedLinks = 0, skippedLinks = 0;
+
+  inNodes.forEach(n => {
+    if (!n.id) return;
+    if (existingIds.has(n.id)) { skippedNodes++; return; }
+    nodes.push({ ...n, events: n.events || [], ring: 3, _targetRadius: 580 });
+    existingIds.add(n.id);
+    addedNodes++;
+  });
+
+  inLinks.forEach(l => {
+    const s = l.source?.id || l.source;
+    const t = l.target?.id || l.target;
+    if (!s || !t || !existingIds.has(s) || !existingIds.has(t)) { skippedLinks++; return; }
+    const key = s < t ? s+'::'+t : t+'::'+s;
+    if (existingPairs.has(key)) { skippedLinks++; return; }
+    links.push({ source: s, target: t, type: l.type, label: l.label });
+    existingPairs.add(key);
+    addedLinks++;
+  });
+
+  // Merge link details — skip if key already documented
+  if (parsed.linkDetails && typeof parsed.linkDetails === 'object') {
+    Object.entries(parsed.linkDetails).forEach(([k, v]) => {
+      if (!LINK_DETAIL_MAP[k]) LINK_DETAIL_MAP[k] = v;
+    });
+  }
+
+  rebuildGraphData();
+  autosave();
+  const msg = `✓ Merged: +${addedNodes} nodes, +${addedLinks} links` +
+    (skippedNodes + skippedLinks ? ` (${skippedNodes + skippedLinks} duplicates skipped)` : '') + '.';
+  editorStatus(status, msg, 'ok');
+}
+document.getElementById('editor-merge-btn').addEventListener('click', editorMergeJSON);
+
+// Graph title — live-update header and document title as user types
+document.getElementById('graph-title-input').addEventListener('input', e => {
+  graphTitle = e.target.value.trim() || 'Graph Canvas';
+  const titleEl = document.getElementById('header-title');
+  if (titleEl) titleEl.textContent = graphTitle;
+  document.title = graphTitle;
+});
+
+// ── EDITOR LIST EVENT DELEGATION (replaces onclick attribute injection) ───────
+document.getElementById('editor-nodes-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === 'edit-node')   editorStartEditNode(id);
+  if (action === 'delete-node') editorDeleteNode(id);
+});
+document.getElementById('editor-links-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, src, tgt } = btn.dataset;
+  if (action === 'edit-link')        editorStartEditLink(src, tgt);
+  if (action === 'delete-link')      editorDeleteLink(src, tgt);
+  if (action === 'save-edit-link')   editorSaveEditLink(src, tgt);
+  if (action === 'cancel-edit-link') editorCancelEditLink();
+});
+
+// ── LINK TYPE DATALIST — populate from LINK_REGISTRY so custom types appear as suggestions ──
+const _elTypeDl = document.getElementById('el-type-datalist');
+if (_elTypeDl) _elTypeDl.innerHTML = LINK_TYPE_OPTS;
+
+// ── FILTER BAR — generate all category buttons from CAT_META ─────────────────
+function buildFilterBar() {
+  // Inject derived active-state CSS for every category
+  const style = document.createElement('style');
+  style.textContent = Object.entries(CAT_META).map(([cat, meta]) =>
+    `.filter-btn[data-cat="${cat}"].active{background:${meta.stroke};color:#fff;border-color:${meta.stroke};opacity:1;}`
+  ).join('');
+  document.head.appendChild(style);
+  // Append one button per category in CAT_META order
+  const bar = document.getElementById('filter-bar');
+  Object.entries(CAT_META).forEach(([cat, meta]) => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.cat = cat;
+    btn.textContent = meta.label;
+    bar.appendChild(btn);
+  });
+}
+
+// ── SESSION AUTOSAVE (Fix 7) ──────────────────────────────────────────────────
+let _autosaveEnabled = false;
+
+function autosave() {
+  if (!_autosaveEnabled) return;
+  try {
+    localStorage.setItem('graph_autosave_v1', JSON.stringify({
+      ts: Date.now(),
+      nodes: nodes.map(n => ({ id:n.id, label:n.label, cat:n.cat, r:n.r,
+        year:n.year, layer:n.layer, title:n.title, desc:n.desc, events:n.events||[] })),
+      links: links.map(l => ({ source:lid(l.source), target:lid(l.target),
+        type:l.type, label:l.label }))
+    }));
+  } catch(e) {}
+}
+
+function checkAutosave() {
+  try {
+    const saved = localStorage.getItem('graph_autosave_v1');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    if (!Array.isArray(data.nodes) || !data.nodes.length) return;
+    const ageMins = Math.round((Date.now() - data.ts) / 60000);
+    const ageStr  = ageMins < 60 ? `${ageMins}m` : `${Math.floor(ageMins/60)}h ${ageMins%60}m`;
+    if (!confirm(
+      `Unsaved session found (${ageStr} ago — ${data.nodes.length} nodes, ${data.links.length} links).\nRestore it?`
+    )) return;
+    _autosaveEnabled = false;
+    nodes.length = 0;
+    data.nodes.forEach(n => {
+      const angle = Math.random() * 2 * Math.PI;
+      nodes.push(Object.assign({ x:580*Math.cos(angle), y:580*Math.sin(angle),
+        vx:0, vy:0, ring:3, _targetRadius:580, events:[] }, n, { events:n.events||[] }));
+    });
+    links.length = 0;
+    data.links.forEach(l => links.push({
+      source:String(l.source), target:String(l.target),
+      type:l.type||'worked', label:l.label||''
+    }));
+    rebuildGraphData();
+    localStorage.removeItem('graph_autosave_v1'); // cleared — new state takes over
+    _autosaveEnabled = true;
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE: NODE TIMELINE EVENTS EDITOR
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _editingNodeEvents = [];
+
+function renderEventsList() {
+  const list  = document.getElementById('en-events-list');
+  const count = document.getElementById('en-events-count');
+  if (!list) return;
+  if (count) count.textContent = _editingNodeEvents.length
+    ? `${_editingNodeEvents.length} event${_editingNodeEvents.length > 1 ? 's' : ''}`
+    : '';
+  if (!_editingNodeEvents.length) {
+    list.innerHTML = '<div style="font-size:0.63rem;color:var(--text-dim);padding:3px 0;font-style:italic">No timeline events yet — add one below.</div>';
+    return;
+  }
+  list.innerHTML = _editingNodeEvents.map((evt, i) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:4px 6px;margin-bottom:3px;background:var(--surface);border:1px solid var(--border);border-radius:3px">
+      <span style="font-size:0.62rem;font-weight:700;color:var(--accent);min-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(evt.year||'')}">${escHtml(evt.year||'—')}</span>
+      <span style="flex:1;font-size:0.62rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(evt.text||'')}">${escHtml(evt.text||'')}</span>
+      <button class="editor-btn danger" style="padding:1px 6px;font-size:0.55rem;flex-shrink:0" data-action="delete-event" data-evt-idx="${i}">✕</button>
+    </div>`
+  ).join('');
+}
+
+document.getElementById('en-events-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="delete-event"]');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.evtIdx);
+  if (!isNaN(idx)) {
+    _editingNodeEvents.splice(idx, 1);
+    renderEventsList();
+  }
+});
+
+document.getElementById('en-evt-add-btn').addEventListener('click', () => {
+  const yearEl = document.getElementById('en-evt-year');
+  const textEl = document.getElementById('en-evt-text');
+  const text   = (textEl?.value || '').trim();
+  if (!text) { textEl && (textEl.style.borderColor = 'var(--accent2)'); return; }
+  if (textEl) textEl.style.borderColor = '';
+  const year = (yearEl?.value || '').trim();
+  _editingNodeEvents.push({ year, text });
+  // Auto-sort: numeric years first, then string comparison
+  _editingNodeEvents.sort((a, b) => {
+    const ay = parseInt(a.year); const by = parseInt(b.year);
+    if (!isNaN(ay) && !isNaN(by)) return ay - by;
+    if (!isNaN(ay)) return -1;
+    if (!isNaN(by)) return 1;
+    return String(a.year).localeCompare(String(b.year));
+  });
+  if (yearEl) yearEl.value = '';
+  if (textEl) textEl.value = '';
+  renderEventsList();
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE: LINK DETAILS EDITOR (LINK_DETAIL_MAP)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Parse the sources textarea — "Label | URL" one per line.
+// A plain textarea is the only reliable editable element on iOS inside
+// a scrollable modal; dynamic input rows are not.
+function parseSourcesTextarea() {
+  const ta = document.getElementById('ed-sources-textarea');
+  if (!ta || !ta.value.trim()) return [];
+  return ta.value.split('\n')
+    .map(line => {
+      const t = line.trim();
+      if (!t) return null;
+      const pipe = t.indexOf('|');
+      if (pipe === -1) return t.startsWith('http') ? { l: '', u: t } : { l: t, u: '' };
+      return { l: t.slice(0, pipe).trim(), u: t.slice(pipe + 1).trim() };
+    })
+    .filter(s => s && (s.l || s.u));
+}
+
+
+function editorRefreshDetailSelects() {
+  const sorted = [...nodes].sort((a, b) => a.label.localeCompare(b.label));
+  const opts   = sorted.map(n => `<option value="${escAttr(n.id)}">${escHtml(n.label)}</option>`).join('');
+  ['ed-src', 'ed-tgt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+function editorLoadLinkDetail() {
+  const src = document.getElementById('ed-src')?.value;
+  const tgt = document.getElementById('ed-tgt')?.value;
+  if (!src || !tgt || src === tgt) return;
+  const det = LINK_DETAIL_MAP[src+'::'+tgt] || LINK_DETAIL_MAP[tgt+'::'+src] || {};
+  document.getElementById('ed-what').value   = det.what   || '';
+  document.getElementById('ed-how').value    = det.how    || '';
+  document.getElementById('ed-impact').value = det.impact || '';
+  const ta = document.getElementById('ed-sources-textarea');
+  if (ta) ta.value = (det.sources || [])
+    .map(s => (s.l && s.u) ? `${s.l} | ${s.u}` : (s.l || s.u))
+    .join('\n');
+  // Update count label to show if detail exists
+  const status = document.getElementById('editor-detail-status');
+  const hasDetail = !!(LINK_DETAIL_MAP[src+'::'+tgt] || LINK_DETAIL_MAP[tgt+'::'+src]);
+  if (status) {
+    status.textContent = hasDetail
+      ? `✓ Detail exists for ${nodeMap[src]?.label||src} ↔ ${nodeMap[tgt]?.label||tgt}`
+      : `ℹ No detail yet for this pair`;
+    status.style.color = hasDetail ? '#1a7a1a' : 'var(--text-dim)';
+  }
+}
+
+function editorSaveLinkDetail() {
+  const src    = document.getElementById('ed-src')?.value;
+  const tgt    = document.getElementById('ed-tgt')?.value;
+  const status = document.getElementById('editor-detail-status');
+  if (!src || !tgt || src === tgt) {
+    editorStatus(status, '⚠ Select two different nodes.', 'err'); return;
+  }
+  // Canonical direction: use the link's source→target order if link exists
+  const link = links.find(l => {
+    const s = lid(l.source); const t = lid(l.target);
+    return (s===src && t===tgt) || (s===tgt && t===src);
+  });
+  const canonicalKey = link
+    ? (lid(link.source) + '::' + lid(link.target))
+    : (src + '::' + tgt);
+  // Remove reverse key to avoid duplicate entries
+  const reverseKey = tgt + '::' + src;
+  if (canonicalKey !== reverseKey) delete LINK_DETAIL_MAP[reverseKey];
+  LINK_DETAIL_MAP[canonicalKey] = {
+    what:    (document.getElementById('ed-what')?.value   || '').trim(),
+    how:     (document.getElementById('ed-how')?.value    || '').trim(),
+    impact:  (document.getElementById('ed-impact')?.value || '').trim(),
+    sources: parseSourcesTextarea()
+  };
+  editorRefreshDetailsList();
+  editorStatus(status, `✓ Saved: ${nodeMap[src]?.label||src} ↔ ${nodeMap[tgt]?.label||tgt}`, 'ok');
+  autosave();
+}
+
+function editorClearLinkDetail() {
+  const src = document.getElementById('ed-src')?.value;
+  const tgt = document.getElementById('ed-tgt')?.value;
+  if (!src || !tgt) return;
+  delete LINK_DETAIL_MAP[src+'::'+tgt];
+  delete LINK_DETAIL_MAP[tgt+'::'+src];
+  document.getElementById('ed-what').value   = '';
+  document.getElementById('ed-how').value    = '';
+  document.getElementById('ed-impact').value = '';
+  const ta = document.getElementById('ed-sources-textarea');
+  if (ta) ta.value = '';
+  const status = document.getElementById('editor-detail-status');
+  editorRefreshDetailsList();
+  editorStatus(status, '✓ Detail cleared.', 'ok');
+}
+
+function editorRefreshDetailsList() {
+  const count  = document.getElementById('editor-detail-count');
+  const list   = document.getElementById('editor-details-list');
+  const keys   = Object.keys(LINK_DETAIL_MAP);
+  if (count) count.textContent = `${keys.length} detail${keys.length !== 1 ? 's' : ''} documented`;
+  if (!list) return;
+  if (!keys.length) {
+    list.innerHTML = '<div style="padding:12px;font-size:0.7rem;color:var(--text-dim);text-align:center">No link details documented yet.</div>';
+    return;
+  }
+  list.innerHTML = keys.map(key => {
+    const [s, t] = key.split('::');
+    const sL = escHtml(nodeMap[s]?.label || s);
+    const tL = escHtml(nodeMap[t]?.label || t);
+    const det = LINK_DETAIL_MAP[key];
+    const preview = escHtml((det.what || '').slice(0, 80) + ((det.what||'').length > 80 ? '…' : ''));
+    return `<div class="editor-list-item" style="flex-direction:column;align-items:flex-start;gap:3px;cursor:pointer"
+        data-action="load-detail" data-src="${escHtml(s)}" data-tgt="${escHtml(t)}">
+      <div style="display:flex;align-items:center;gap:6px;width:100%">
+        <span class="editor-item-label" style="max-width:180px" title="${sL}">${sL}</span>
+        <span style="font-size:0.65rem;color:var(--text-dim)">↔</span>
+        <span class="editor-item-label" style="max-width:180px" title="${tL}">${tL}</span>
+        <span style="margin-left:auto;font-size:0.55rem;color:var(--text-dim)">${(det.sources||[]).length} src${(det.sources||[]).length !== 1 ? 's' : ''}</span>
+      </div>
+      ${preview ? `<div style="font-size:0.6rem;color:var(--text-dim);line-height:1.4;padding-left:2px">${preview}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Wire up detail list click-to-load
+document.getElementById('editor-details-list').addEventListener('click', e => {
+  const row = e.target.closest('[data-action="load-detail"]');
+  if (!row) return;
+  const src = row.dataset.src;
+  const tgt = row.dataset.tgt;
+  // Set dropdowns to matching values
+  const srcEl = document.getElementById('ed-src');
+  const tgtEl = document.getElementById('ed-tgt');
+  if (srcEl) {
+    // Try src→tgt first, else swap
+    const fwd = LINK_DETAIL_MAP[src+'::'+tgt];
+    srcEl.value = fwd ? src : tgt;
+    if (tgtEl) tgtEl.value = fwd ? tgt : src;
+  }
+  editorLoadLinkDetail();
+  // Scroll form into view
+  document.getElementById('ed-what')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+document.getElementById('ed-load-btn').addEventListener('click', editorLoadLinkDetail);
+document.getElementById('ed-save-btn').addEventListener('click', editorSaveLinkDetail);
+document.getElementById('ed-clear-btn').addEventListener('click', editorClearLinkDetail);
+// Auto-load when dropdowns change
+['ed-src', 'ed-tgt'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', editorLoadLinkDetail);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE: DOWNLOAD AS HTML (bake current state into portable .html file)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function downloadAsHTML() {
+  const btn    = document.getElementById('editor-download-html-btn');
+  const status = document.getElementById('editor-export-html-status');
+  if (btn) btn.disabled = true;
+  editorStatus(status, '⟳ Generating…', '');
+
+  // 1. Serialise current graph state
+  const nodesSerial = nodes.map(n => ({
+    id:n.id, label:n.label, cat:n.cat, r:n.r,
+    year:n.year, layer:n.layer, title:n.title, desc:n.desc,
+    events: n.events || []
+  }));
+  const linksSerial = links.map(l => ({
+    source: lid(l.source), target: lid(l.target),
+    type:   l.type,        label:  l.label
+  }));
+  // Deep-copy LINK_DETAIL_MAP (exclude runtime-generated fallback entries — keep only user/original ones)
+  const detailSerial = JSON.parse(JSON.stringify(LINK_DETAIL_MAP));
+
+  // 2. Get original HTML source — prefer fetch (exact bytes), fallback to snapshot
+  let source = _ORIGINAL_HTML_SNAPSHOT;
+  try {
+    const resp = await fetch(location.href);
+    if (resp.ok) source = await resp.text();
+  } catch(e) { /* use snapshot */ }
+
+  // 3. Replace each data block between markers
+  const nodesBlock  = `// @@NODES_START@@\nconst nodes =[\n${nodesSerial.map(n => JSON.stringify(n)).join(',\n')}];\n// @@NODES_END@@`;
+  const linksBlock  = `// @@LINKS_START@@\nconst links =[\n${linksSerial.map(l => JSON.stringify(l)).join(',\n')}];\n// @@LINKS_END@@`;
+  const detailBlock = `// @@DETAIL_START@@\nconst LINK_DETAIL_MAP = ${JSON.stringify(detailSerial, null, 1)};\n// @@DETAIL_END@@`;
+
+  source = source.replace(/\/\/ @@NODES_START@@[\s\S]*?\/\/ @@NODES_END@@/, nodesBlock);
+  source = source.replace(/\/\/ @@LINKS_START@@[\s\S]*?\/\/ @@LINKS_END@@/, linksBlock);
+  source = source.replace(/\/\/ @@DETAIL_START@@[\s\S]*?\/\/ @@DETAIL_END@@/, detailBlock);
+
+  // Reset encrypted payload so plain HTML downloads are never accidentally encrypted
+  source = source.replace(
+    /\/\/ @@ENCRYPTED_START@@[\s\S]*?\/\/ @@ENCRYPTED_END@@/,
+    `// @@ENCRYPTED_START@@\nconst ENCRYPTED_PAYLOAD = { salt: null, iv: null, ct: null };\n// @@ENCRYPTED_END@@`
+  );
+
+  // Also replace graphTitle and document <title>
+  const safeTitle = graphTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  source = source.replace(
+    /\/\/ @@GRAPH_TITLE_START@@[\s\S]*?\/\/ @@GRAPH_TITLE_END@@/,
+    `// @@GRAPH_TITLE_START@@\nlet graphTitle = ${JSON.stringify(graphTitle)};\n// @@GRAPH_TITLE_END@@`
+  );
+  source = source.replace(/<title>[^<]*<\/title>/, `<title>${safeTitle}</title>`);
+
+  // 4. Validate: all three markers still present in result means replacements succeeded
+  const nodesOk  = source.includes('@@NODES_START@@');
+  const linksOk  = source.includes('@@LINKS_START@@');
+  const detailOk = source.includes('@@DETAIL_START@@');
+  if (!nodesOk || !linksOk || !detailOk) {
+    const missing = [!nodesOk&&'nodes', !linksOk&&'links', !detailOk&&'details'].filter(Boolean).join(', ');
+    editorStatus(status, `⚠ Marker replacement failed (${missing}). Use JSON export instead.`, 'err');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  // 5. Trigger download
+  const blob = new Blob([source], { type: 'text/html;charset=utf-8' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `${graphTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'graph'}-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 6000);
+  editorStatus(status, `✓ Downloaded — ${nodes.length} nodes, ${links.length} links, ${Object.keys(LINK_DETAIL_MAP).length} details.`, 'ok');
+  if (btn) btn.disabled = false;
+}
+
+document.getElementById('editor-download-html-btn').addEventListener('click', downloadAsHTML);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ENCRYPTION ENGINE — AES-256-GCM via Web Crypto API
+// Key derivation: PBKDF2 / SHA-256 / 200k iterations / 16-byte random salt
+// No libraries. No server. Decryption is entirely in-browser RAM.
+// ══════════════════════════════════════════════════════════════════════════════
+
+function _b64enc(buf) {
+  const b = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s);
+}
+function _b64dec(str) {
+  const s = atob(str), b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+  return b;
+}
+
+async function _deriveKey(password, salt) {
+  const km = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+
+// Called when an encrypted file is opened
+async function decryptAndInit() {
+  const password = document.getElementById('decrypt-input')?.value;
+  const errEl    = document.getElementById('decrypt-error');
+  const btn      = document.getElementById('decrypt-btn');
+  if (!password) { if (errEl) errEl.textContent = 'Enter a passphrase.'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Decrypting…'; }
+  if (errEl) errEl.textContent = '';
+  try {
+    const key  = await _deriveKey(password, _b64dec(ENCRYPTED_PAYLOAD.salt));
+    const pt   = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: _b64dec(ENCRYPTED_PAYLOAD.iv) },
+      key, _b64dec(ENCRYPTED_PAYLOAD.ct)
+    );
+    const data = JSON.parse(new TextDecoder().decode(pt));
+    // Populate graph
+    nodes.length = 0; links.length = 0;
+    Object.keys(LINK_DETAIL_MAP).forEach(k => delete LINK_DETAIL_MAP[k]);
+    (data.nodes || []).forEach(n => nodes.push(n));
+    (data.links || []).forEach(l => links.push(l));
+    Object.assign(LINK_DETAIL_MAP, data.linkDetails || {});
+    if (data.title) { graphTitle = data.title; document.title = graphTitle; }
+    document.getElementById('decrypt-overlay').style.display = 'none';
+    init(); _autosaveEnabled = true; buildFilterBar();
+    // Skip checkAutosave — localStorage may contain unrelated unencrypted data
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Wrong passphrase or corrupted file. Try again.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Decrypt →'; }
+  }
+}
+
+// Called from the Export tab to produce an encrypted download
+async function downloadEncryptedHTML() {
+  const btn    = document.getElementById('editor-download-encrypted-btn');
+  const status = document.getElementById('editor-export-html-status');
+
+  // Prompt for passphrase (browser-native dialog — no typed password visible in DOM)
+  const pw1 = prompt('Set a passphrase for this encrypted file:');
+  if (!pw1) return;
+  if (pw1.length < 4) { editorStatus(status, '⚠ Passphrase too short (min 4 chars).', 'err'); return; }
+  const pw2 = prompt('Confirm passphrase:');
+  if (pw1 !== pw2) { editorStatus(status, '⚠ Passphrases do not match.', 'err'); return; }
+
+  if (btn) btn.disabled = true;
+  editorStatus(status, '⟳ Encrypting…', '');
+  try {
+    // Serialise everything
+    const plaintext = JSON.stringify({
+      title: graphTitle,
+      nodes: nodes.map(n => ({ id:n.id, label:n.label, cat:n.cat, r:n.r, year:n.year, layer:n.layer, title:n.title, desc:n.desc, events:n.events||[] })),
+      links: links.map(l => ({ source:lid(l.source), target:lid(l.target), type:l.type, label:l.label })),
+      linkDetails: JSON.parse(JSON.stringify(LINK_DETAIL_MAP))
+    });
+
+    // Encrypt
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv   = crypto.getRandomValues(new Uint8Array(12));
+    const key  = await _deriveKey(pw1, salt);
+    const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext));
+
+    // Get HTML source
+    let source = _ORIGINAL_HTML_SNAPSHOT;
+    try { const r = await fetch(location.href); if (r.ok) source = await r.text(); } catch(e) {}
+
+    // Bake encrypted payload into the file
+    source = source.replace(
+      /\/\/ @@ENCRYPTED_START@@[\s\S]*?\/\/ @@ENCRYPTED_END@@/,
+      `// @@ENCRYPTED_START@@\nconst ENCRYPTED_PAYLOAD = ${JSON.stringify({ salt:_b64enc(salt), iv:_b64enc(iv), ct:_b64enc(ct) })};\n// @@ENCRYPTED_END@@`
+    );
+    // Wipe the plaintext data blocks
+    source = source.replace(/\/\/ @@NODES_START@@[\s\S]*?\/\/ @@NODES_END@@/, '// @@NODES_START@@\nconst nodes =[];\n// @@NODES_END@@');
+    source = source.replace(/\/\/ @@LINKS_START@@[\s\S]*?\/\/ @@LINKS_END@@/, '// @@LINKS_START@@\nconst links =[];\n// @@LINKS_END@@');
+    source = source.replace(/\/\/ @@DETAIL_START@@[\s\S]*?\/\/ @@DETAIL_END@@/, '// @@DETAIL_START@@\nconst LINK_DETAIL_MAP = {};\n// @@DETAIL_END@@');
+
+    // Download
+    const blob = new Blob([source], { type: 'text/html;charset=utf-8' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    const safe = graphTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'graph';
+    a.download = `${safe}-encrypted-${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 6000);
+
+    // Show passphrase to creator so they can copy and share it
+    document.getElementById('password-reveal-display').textContent = pw1;
+    document.getElementById('password-reveal-overlay').style.display = 'flex';
+    editorStatus(status, '✓ Encrypted file downloaded.', 'ok');
+
+  } catch(e) {
+    editorStatus(status, `⚠ Encryption failed: ${e.message}`, 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Wire decrypt overlay
+document.getElementById('decrypt-btn').addEventListener('click', decryptAndInit);
+document.getElementById('decrypt-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') decryptAndInit();
+});
+
+// Wire password reveal modal
+document.getElementById('password-reveal-close').addEventListener('click', () => {
+  document.getElementById('password-reveal-overlay').style.display = 'none';
+});
+document.getElementById('password-reveal-copy').addEventListener('click', () => {
+  const pw = document.getElementById('password-reveal-display').textContent;
+  if (!pw) return;
+  navigator.clipboard.writeText(pw)
+    .then(() => { document.getElementById('password-reveal-copy').textContent = '✓ Copied'; })
+    .catch(() => {});
+});
+
+// Wire encrypted download button
+document.getElementById('editor-download-encrypted-btn').addEventListener('click', downloadEncryptedHTML);
+
+// ── EXPOSE GLOBALS — only what inline HTML still calls directly ───────────────
+window.toggleEditor = toggleEditor;   // header button: onclick="toggleEditor()"
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Startup — gate on encryption state
+if (ENCRYPTED_PAYLOAD && ENCRYPTED_PAYLOAD.ct) {
+  // Encrypted file: hide welcome, show decrypt overlay
+  document.getElementById('welcome-overlay').style.display = 'none';
+  document.getElementById('decrypt-overlay').style.display = 'flex';
+} else {
+  init();
+  _autosaveEnabled = true;
+  buildFilterBar();
+  checkAutosave();
+}
+
+}); // End DOMContentLoaded
+</script>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GRAPH EDITOR MODAL — add/delete nodes and links at runtime
+════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── EDITOR BUTTON IN HEADER ──────────────────────────────── */
+#editor-btn-in-header {
+  background: transparent; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text-dim); padding: 3px 9px; font-family: 'DM Sans', sans-serif;
+  font-size: 0.65rem; font-weight: 700; cursor: pointer; letter-spacing: 0.04em;
+  text-transform: uppercase; transition: all 0.15s; flex-shrink: 0;
+}
+#editor-btn-in-header:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+
+/* ── EDITOR MODAL SHELL ───────────────────────────────────── */
+#editor-modal {
+  position: fixed; inset: 0; z-index: 9000;
+  display: none; align-items: center; justify-content: center;
+}
+#editor-modal.open { display: flex; }
+#editor-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+}
+#editor-panel {
+  position: relative; z-index: 1;
+  background: var(--surface); border: 2px solid var(--accent);
+  border-radius: 6px; width: min(920px, 96vw); height: min(700px, 92vh);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+}
+#editor-header {
+  background: var(--accent); color: white; padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+#editor-title {
+  font-family: 'Crimson Pro', serif; font-weight: 700; font-size: 1rem;
+  letter-spacing: 0.04em; flex: 1;
+}
+#editor-tabs { display: flex; gap: 4px; }
+.editor-tab {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 3px; padding: 4px 13px; color: rgba(255,255,255,0.85);
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer;
+  transition: background 0.15s;
+}
+.editor-tab:hover { background: rgba(255,255,255,0.28); }
+.editor-tab.active { background: white; color: var(--accent); }
+#editor-close-btn {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 3px; color: white; font-size: 1.1rem; cursor: pointer;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+#editor-close-btn:hover { background: var(--accent2); border-color: var(--accent2); }
+#editor-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.editor-tab-content { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.editor-tab-content.active { display: flex; }
+
+/* ── EDITOR FORM COMPONENTS ───────────────────────────────── */
+.editor-section {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
+}
+.editor-section-title {
+  font-family: 'Crimson Pro', serif; font-weight: 700; font-size: 0.8rem;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.editor-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.editor-field { display: flex; flex-direction: column; gap: 3px; }
+.editor-label {
+  font-size: 0.58rem; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.editor-input, .editor-select, .editor-textarea {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+  padding: 5px 8px; font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+  color: var(--text); outline: none;
+}
+.editor-input:focus, .editor-select:focus, .editor-textarea:focus { border-color: var(--accent); }
+.editor-textarea { min-height: 60px; resize: vertical; }
+.editor-btn {
+  background: var(--accent); color: white; border: none; border-radius: 3px;
+  padding: 6px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.68rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s;
+}
+.editor-btn:hover { background: var(--accent2); }
+.editor-btn.danger { background: #8b1010; }
+.editor-btn.danger:hover { background: #b01818; }
+.editor-btn.secondary {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+}
+.editor-btn.secondary:hover { background: var(--surface2); }
+.editor-status { margin-left: 10px; font-size: 0.68rem; color: var(--text-dim); }
+
+/* ── EDITOR LISTS ─────────────────────────────────────────── */
+.editor-search-bar {
+  padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.editor-search-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 3px; padding: 6px 10px; font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem; color: var(--text); outline: none;
+}
+.editor-search-input:focus { border-color: var(--accent); }
+.editor-count { font-size: 0.6rem; color: var(--text-dim); white-space: nowrap; }
+.editor-list { flex: 1; overflow-y: auto; }
+.editor-list-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+  border-bottom: 1px solid var(--surface2); font-size: 0.72rem;
+  transition: background 0.1s;
+}
+.editor-list-item:hover { background: var(--surface2); }
+.editor-item-label { flex: 1; font-weight: 600; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-item-id { font-size: 0.58rem; color: var(--text-dim); font-family: monospace; }
+.editor-cat-badge {
+  font-size: 0.55rem; font-weight: 700; padding: 1px 5px; border-radius: 2px;
+  color: white; white-space: nowrap; flex-shrink: 0;
+}
+.editor-link-arrow { font-size: 0.65rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+
+/* ── EXPORT TAB ───────────────────────────────────────────── */
+.editor-export-area {
+  flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+}
+.editor-export-desc { font-size: 0.73rem; color: var(--text-dim); line-height: 1.6; }
+.editor-export-textarea {
+  flex: 1; font-family: 'Courier New', monospace; font-size: 0.62rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 3px; padding: 10px; color: var(--text); resize: none; outline: none;
+}
+.editor-export-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ═══════════════════════════════════════════════════════════
+   EDITOR MODAL — PHONE FIXES  (max-width: 640px)
+   Root issue: .editor-tab-content has overflow:hidden — on phone
+   the .editor-section is taller than available height, clips silently.
+   Fix: make the tab content the single scroller; neutralise nested list.
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* Full-screen panel gives maximum form real estate */
+  #editor-panel {
+    width: 100vw; max-width: 100vw;
+    height: 100dvh; /* dynamic vh accounts for mobile browser chrome */
+    height: 100vh;  /* fallback for browsers without dvh */
+    border-radius: 0;
+    border-left: none; border-right: none; border-top: none;
+  }
+
+  /* Header: 2-row layout.
+     Row 1 = title + close button (natural flow).
+     Row 2 = tabs strip (order:3 pushes them below). */
+  #editor-header {
+    flex-wrap: wrap; height: auto;
+    padding: 8px 10px; gap: 4px 6px;
+  }
+  #editor-title  { flex: 1; font-size: 0.78rem; min-width: 0; }
+  #editor-close-btn { margin-left: auto; } /* pins close to far right of row 1 */
+  #editor-tabs {
+    order: 3;          /* placed after title (order:0) and close (order:0) */
+    width: 100%;
+    overflow-x: auto;  /* horizontal scroll — no wrapping inside strip */
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+  }
+  #editor-tabs::-webkit-scrollbar { display: none; }
+  .editor-tab { padding: 4px 10px; font-size: 0.6rem; flex-shrink: 0; }
+
+  /* ── CORE SCROLL FIX ──────────────────────────────────────
+     overflow:hidden clips long forms on phone. Changing to
+     overflow-y:auto makes each active tab content the scroller.
+     !important is needed to override the base .editor-tab-content
+     shorthand 'overflow:hidden' which sets both axes. */
+  .editor-tab-content {
+    overflow-x: hidden !important;
+    overflow-y: auto   !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The nested .editor-list scroller is now redundant — the whole
+     tab content scrolls. Let the list flow naturally in height. */
+  .editor-list {
+    flex: none;
+    overflow-y: visible;
+    min-height: 80px; /* preserve at least some visible list */
+  }
+
+  /* iOS Safari: inputs <16px font trigger auto-zoom on focus which
+     breaks the modal layout. Force 16px on all interactive fields. */
+  .editor-input, .editor-select, .editor-textarea,
+  .editor-search-input { font-size: 16px !important; }
+
+  /* Export/import tab: side-by-side columns → single scrollable column */
+  #editor-tab-export            { flex-direction: column !important; }
+  .editor-export-row            { flex-direction: column !important; }
+  .editor-export-area           { flex: none; overflow: visible; }
+  .editor-export-textarea       { flex: none; height: 140px; }
+
+}
+</style>
+
+<div id="editor-modal">
+  <div id="editor-overlay"></div>
+  <div id="editor-panel">
+    <!-- ── MODAL HEADER ─────────────────────────────────────── -->
+    <div id="editor-header">
+      <span id="editor-title">✏ Graph Editor</span>
+      <div id="editor-tabs">
+        <button class="editor-tab active" data-tab="nodes">Nodes</button>
+        <button class="editor-tab" data-tab="links">Links</button>
+        <button class="editor-tab" data-tab="details">Link Details</button>
+        <button class="editor-tab" data-tab="export">Import / Export</button>
+      </div>
+      <button id="editor-close-btn" title="Close editor">×</button>
+    </div>
+
+    <div id="editor-body">
+
+      <!-- ════════════════════ NODES TAB ════════════════════ -->
+      <div id="editor-tab-nodes" class="editor-tab-content active">
+        <div class="editor-section">
+          <div class="editor-section-title" id="editor-node-form-title">+ Add New Node</div>
+          <div class="editor-form-row">
+            <div class="editor-field">
+              <label class="editor-label">ID (no spaces)</label>
+              <input class="editor-input" id="en-id" placeholder="my_node_id" style="width:130px">
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Display Label</label>
+              <input class="editor-input" id="en-label" placeholder="Full Name / Title" style="width:180px">
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Category</label>
+              <select class="editor-select" id="en-cat" style="width:130px">
+                <option value="network">Power Brokers</option>
+                <option value="finance">Finance/Capital</option>
+                <option value="ops">Operations</option>
+                <option value="tech">Platforms</option>
+                <option value="media">Media &amp; Ideology</option>
+                <option value="intel">Intelligence</option>
+                <option value="cognitive">Cognitive Research</option>
+                <option value="transhuman">Transhumanism</option>
+                <option value="compute">Compute/Cloud</option>
+                <option value="defense">Defense/Gov</option>
+                <option value="power">Energy/Grid</option>
+                <option value="models">AI Models</option>
+                <option value="infrastructure">Physical Infra</option>
+              </select>
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Size (r)</label>
+              <input class="editor-input" id="en-r" type="number" value="12" min="5" max="32" style="width:60px">
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Year</label>
+              <input class="editor-input" id="en-year" type="number" placeholder="2024" style="width:72px">
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Layer (−1 to 5)</label>
+              <input class="editor-input" id="en-layer" type="number" value="5" min="-1" max="5" style="width:68px">
+            </div>
+          </div>
+          <div class="editor-form-row" style="margin-top:8px">
+            <div class="editor-field" style="flex:1">
+              <label class="editor-label">Title (panel heading)</label>
+              <input class="editor-input" id="en-title" placeholder="Full title shown in the side panel" style="width:100%">
+            </div>
+          </div>
+          <div class="editor-form-row" style="margin-top:6px">
+            <div class="editor-field" style="flex:1">
+              <label class="editor-label">Description</label>
+              <textarea class="editor-textarea" id="en-desc" placeholder="Description shown in the side panel when this node is clicked." style="width:100%"></textarea>
+            </div>
+          </div>
+
+          <!-- ── TIMELINE EVENTS SUB-EDITOR ──────────────────── -->
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <label class="editor-label" style="margin:0">Timeline Events (shown in side panel)</label>
+              <span class="editor-count" id="en-events-count" style="font-size:0.58rem"></span>
+            </div>
+            <div id="en-events-list" style="max-height:120px;overflow-y:auto;margin-bottom:6px;min-height:22px"></div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input class="editor-input" id="en-evt-year" placeholder="Year (e.g. 2024 Apr)" style="width:136px;font-size:0.68rem">
+              <input class="editor-input" id="en-evt-text" placeholder="Event description…" style="flex:1;min-width:160px;font-size:0.68rem">
+              <button class="editor-btn secondary" id="en-evt-add-btn" style="white-space:nowrap;flex-shrink:0">+ Add Event</button>
+            </div>
+          </div>
+
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <button class="editor-btn" id="editor-add-node-btn">+ Add Node</button>
+            <button class="editor-btn secondary" id="editor-cancel-edit-btn" style="display:none">✕ Cancel Edit</button>
+            <span class="editor-status" id="editor-node-status"></span>
+          </div>
+        </div>
+
+        <div class="editor-search-bar">
+          <input class="editor-search-input" id="editor-node-search" placeholder="Filter nodes by name, ID, or category…">
+          <span class="editor-count" id="editor-node-count"></span>
+        </div>
+        <div class="editor-list" id="editor-nodes-list"></div>
+      </div><!-- /nodes tab -->
+
+      <!-- ════════════════════ LINKS TAB ════════════════════ -->
+      <div id="editor-tab-links" class="editor-tab-content">
+        <div class="editor-section">
+          <div class="editor-section-title">+ Add New Link (Edge)</div>
+          <div class="editor-form-row">
+            <div class="editor-field">
+              <label class="editor-label">Source Node</label>
+              <select class="editor-select" id="el-source" style="width:200px"></select>
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Target Node</label>
+              <select class="editor-select" id="el-target" style="width:200px"></select>
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Edge Type</label>
+              <div class="editor-field">
+              <label class="editor-label">Edge Type</label>
+              <input class="editor-input" id="el-type" list="el-type-datalist"
+                placeholder="e.g. funded, director…" style="width:150px" autocomplete="off">
+              <datalist id="el-type-datalist"><!-- populated from LINK_REGISTRY by JS --></datalist>
+            </div>
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Edge Label</label>
+              <input class="editor-input" id="el-label" placeholder="short description" style="width:170px">
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center">
+            <button class="editor-btn" id="editor-add-link-btn">+ Add Link</button>
+            <span class="editor-status" id="editor-link-status"></span>
+          </div>
+        </div>
+
+        <div class="editor-search-bar">
+          <input class="editor-search-input" id="editor-link-search" placeholder="Filter links by node name or edge type…">
+          <span class="editor-count" id="editor-link-count"></span>
+        </div>
+        <div class="editor-list" id="editor-links-list"></div>
+      </div><!-- /links tab -->
+
+      <!-- ════════════════════ LINK DETAILS TAB ════════════════ -->
+      <div id="editor-tab-details" class="editor-tab-content">
+        <div class="editor-section" style="flex-shrink:0">
+          <div class="editor-section-title">Edit Connection Detail (What / How / Impact)</div>
+          <div class="editor-form-row">
+            <div class="editor-field">
+              <label class="editor-label">Source Node</label>
+              <select class="editor-select" id="ed-src" style="width:200px"></select>
+            </div>
+            <div class="editor-field">
+              <label class="editor-label">Target Node</label>
+              <select class="editor-select" id="ed-tgt" style="width:200px"></select>
+            </div>
+            <button class="editor-btn secondary" id="ed-load-btn" style="align-self:flex-end;white-space:nowrap">⟳ Load Detail</button>
+          </div>
+          <div class="editor-form-row" style="margin-top:8px">
+            <div class="editor-field" style="flex:1">
+              <label class="editor-label">[WHAT] — What is the documented connection?</label>
+              <textarea class="editor-textarea" id="ed-what" style="width:100%;min-height:48px" placeholder="Factual description of the relationship…"></textarea>
+            </div>
+          </div>
+          <div class="editor-form-row" style="margin-top:6px">
+            <div class="editor-field" style="flex:1">
+              <label class="editor-label">[HOW] — Mechanism / documented method</label>
+              <textarea class="editor-textarea" id="ed-how" style="width:100%;min-height:48px" placeholder="How the connection operates, with primary source references…"></textarea>
+            </div>
+          </div>
+          <div class="editor-form-row" style="margin-top:6px">
+            <div class="editor-field" style="flex:1">
+              <label class="editor-label">[IMPACT] — Documented outcome or systemic significance</label>
+              <textarea class="editor-textarea" id="ed-impact" style="width:100%;min-height:48px" placeholder="Measurable or documented consequence…"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:8px">
+            <label class="editor-label" style="margin-bottom:4px;display:block">Sources — one per line: <span style="font-weight:400;text-transform:none;letter-spacing:0">Label | https://url.com</span></label>
+            <textarea class="editor-textarea" id="ed-sources-textarea"
+              style="width:100%;min-height:90px;font-size:0.68rem;font-family:'DM Sans',sans-serif;resize:vertical"
+              placeholder="Reuters: Company files for IPO | https://reuters.com/...&#10;Annual Report 2023 | https://example.com/annual-report"></textarea>
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="editor-btn" id="ed-save-btn">✓ Save Detail</button>
+            <button class="editor-btn secondary" id="ed-clear-btn" style="border-color:var(--accent2);color:var(--accent2)">✕ Clear Detail</button>
+            <span class="editor-status" id="editor-detail-status"></span>
+          </div>
+        </div>
+        <!-- Scrollable index of all documented details -->
+        <div class="editor-search-bar" style="font-size:0.65rem;color:var(--text-dim)">
+          All documented connection details — click a row to load it for editing.
+          <span class="editor-count" id="editor-detail-count" style="margin-left:auto"></span>
+        </div>
+        <div class="editor-list" id="editor-details-list"></div>
+      </div><!-- /details tab -->
+
+      <!-- ════════════════════ IMPORT / EXPORT TAB ════════════ -->
+      <div id="editor-tab-export" class="editor-tab-content" style="flex-direction:column">
+        <!-- Graph title — editable, baked into every HTML download -->
+        <div class="editor-section" style="flex-shrink:0;border-bottom:1px solid var(--border)">
+          <div class="editor-section-title">Graph Title</div>
+          <div class="editor-form-row">
+            <div class="editor-field" style="flex:1">
+              <input class="editor-input" id="graph-title-input" style="width:100%;font-size:0.9rem;font-weight:600"
+                placeholder="My Graph">
+              <p class="editor-export-desc" style="margin-top:4px">Updates the header and file title. Saved into every HTML download.</p>
+            </div>
+          </div>
+        </div>
+        <div class="editor-export-row" style="display:flex;flex-direction:row;flex:1">
+
+        <!-- LEFT: EXPORT -->
+        <div class="editor-export-area" style="border-right:1px solid var(--border)">
+          <p class="editor-export-desc" style="font-weight:700;color:var(--accent);margin-bottom:4px">⬇ Export Current Graph</p>
+          <p class="editor-export-desc">
+            Snapshot all nodes + links (including any in-session additions) to JSON.
+            Download or copy it — paste back via Import to reload later.
+          </p>
+          <div class="editor-export-btns">
+            <button class="editor-btn" id="editor-export-generate-btn">⟳ Generate</button>
+            <button class="editor-btn secondary" id="editor-export-copy-btn">⎘ Copy</button>
+            <button class="editor-btn secondary" id="editor-export-download-btn">⬇ Download JSON</button>
+          </div>
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+            <p class="editor-export-desc" style="font-weight:700;color:#183b28;margin-bottom:4px">⬇ Download as Standalone HTML</p>
+            <p class="editor-export-desc">Bakes ALL current edits (nodes, links, events, link details) directly into the HTML file. Open the download and it shows your edited graph — no import step needed. Shareable and self-contained.</p>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+              <button class="editor-btn" id="editor-download-html-btn" style="background:#183b28">⬇ Download as HTML</button>
+              <button class="editor-btn secondary" id="editor-download-svg-btn">⬇ Download SVG</button>
+              <span class="editor-status" id="editor-export-html-status"></span>
+            </div>
+            <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+              <p class="editor-export-desc" style="font-weight:700;color:var(--accent2);margin-bottom:4px">🔒 Download Encrypted HTML</p>
+              <p class="editor-export-desc">Prompts for a passphrase. The downloaded file is unreadable without it — safe to share over email or USB. AES-256-GCM, all in-browser.</p>
+              <button class="editor-btn secondary" id="editor-download-encrypted-btn" style="margin-top:6px;border-color:var(--accent2);color:var(--accent2)">🔒 Download Encrypted</button>
+            </div>
+          </div>
+          <textarea class="editor-export-textarea" id="editor-export-text" readonly
+            placeholder="Click 'Generate' to snapshot the current graph data…"></textarea>
+        </div>
+
+        <!-- RIGHT: IMPORT -->
+        <div class="editor-export-area">
+          <p class="editor-export-desc" style="font-weight:700;color:var(--accent2);margin-bottom:4px">⬆ Import JSON</p>
+          <p class="editor-export-desc">
+            Paste a previously exported JSON (or any valid <code>{ nodes: […], links: […] }</code> structure) and click Import.
+            <strong>This replaces the entire current graph.</strong>
+          </p>
+          <div class="editor-export-btns">
+            <button class="editor-btn" id="editor-import-btn" style="background:var(--accent2)">⬆ Import &amp; Replace</button>
+            <button class="editor-btn secondary" id="editor-merge-btn">⊕ Merge</button>
+            <span class="editor-status" id="editor-import-status"></span>
+          </div>
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+            <p class="editor-export-desc" style="font-weight:700;color:var(--accent2);margin-bottom:4px">☐ New Graph</p>
+            <p class="editor-export-desc">Clears all nodes, links, and documented details. Cannot be undone.</p>
+            <button class="editor-btn secondary" id="editor-clear-all-btn" style="margin-top:6px;border-color:var(--accent2);color:var(--accent2)">✕ Clear All</button>
+          </div>
+          <textarea class="editor-export-textarea" id="editor-import-text"
+            placeholder='Paste exported JSON here, e.g.:&#10;{&#10;  "nodes": [ { "id": "my_node", "label": "…", … } ],&#10;  "links": [ { "source": "node_a", "target": "node_b", … } ]&#10;}'></textarea>
+        </div>
+
+      </div><!-- /export-import-row -->
+      </div><!-- /editor-tab-export -->
+
+    </div><!-- /editor-body -->
+  </div><!-- /editor-panel -->
+</div><!-- /editor-modal -->
+
+</body>
+</html>

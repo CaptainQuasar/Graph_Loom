@@ -128,15 +128,15 @@ Multiple people can build a graph together without any shared server.
 
 **Tips:**
 
-- Agree on node IDs before starting — a node's ID is the deduplication key. Two people creating `acme_corp` independently will merge cleanly. Two people creating `acme` and `acme_corp` for the same entity won't merge as intended.
-- Use the **Graph Title** to track version (e.g. "Investigation A — merged 2024-11-15")
+- Agree on node IDs before starting a node's ID is the deduplication key. Two people creating `acme_corp` independently will merge cleanly. Two people creating `acme` and `acme_corp` for the same entity won't merge as intended.
+- Use the **Graph Title** to track version (e.g. "Investigation A merged 2024-11-15")
 - Export JSON before every merge so you have a rollback point
 
 ---
 
 ## Encryption
 
-Encrypts the graph data using **AES-256-GCM** with a key derived via **PBKDF2** (200,000 iterations, SHA-256). Decryption happens entirely in the browser — no server is ever contacted.
+Encrypts the graph data using **AES-256-GCM** with a key derived via **PBKDF2** (200,000 iterations, SHA-256). Decryption happens entirely in the browser, no server is ever contacted.
 
 ### Encrypting a file
 
@@ -145,7 +145,7 @@ Encrypts the graph data using **AES-256-GCM** with a key derived via **PBKDF2** 
 3. Enter a passphrase when prompted (minimum 4 characters; longer is better)
 4. Confirm the passphrase
 5. The encrypted file downloads
-6. A **passphrase reveal modal** appears immediately — copy the passphrase and share it via a separate channel (Signal, in person, etc.)
+6. A **passphrase reveal modal** appears immediately, copy the passphrase and share it via a separate channel (Signal, in person, etc.)
 
 ### What the encrypted file contains
 
@@ -154,13 +154,13 @@ The encrypted file is a standard `.html` file that opens in any browser. It cont
 - The AES-GCM ciphertext of the graph JSON (base64-encoded)
 - The PBKDF2 salt (random, 16 bytes, base64-encoded)  
 - The AES-GCM IV (random, 12 bytes, base64-encoded)
-- **No plaintext data** — nodes, links, and details are replaced with empty arrays
+- **No plaintext data** nodes, links, and details are replaced with empty arrays
 
 Without the passphrase the file is inert. The source code is visible but the data is not.
 
 ### Decrypting a file
 
-Open the encrypted `.html` in any browser. A password prompt appears — enter the passphrase. If correct, the graph decrypts in RAM and renders. If wrong, an error is shown and you can retry.
+Open the encrypted `.html` in any browser. A password prompt appears, enter the passphrase. If correct, the graph decrypts in RAM and renders. If wrong, an error is shown and you can retry.
 
 Decrypted graphs are **not** automatically saved to localStorage. To save the decrypted state, use **Download as HTML** (unencrypted) or **Download Encrypted** with a new passphrase.
 

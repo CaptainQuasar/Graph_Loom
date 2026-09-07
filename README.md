@@ -97,7 +97,7 @@ Paste a JSON snapshot and click **⊕ Merge**. This **adds** nodes and links fro
 - Nodes with IDs that already exist are **silently skipped**
 - Links where the source↔target pair already exists are **silently skipped**
 - New nodes and links are added immediately
-- Link details are merged — existing keys are kept, new ones added
+- Link details are merged existing keys are kept, new ones added
 
 The status line reports what was added vs skipped.
 

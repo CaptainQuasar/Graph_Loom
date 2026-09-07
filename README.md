@@ -294,9 +294,9 @@ Custom types typed in the editor are automatically registered for the session an
 
 ## Tips for Investigators
 
-**Keep IDs stable.** The node ID is the permanent key used for deduplication, link resolution, and detail map lookups. Rename labels freely — never change IDs once a graph is in circulation.
+**Keep IDs stable.** The node ID is the permanent key used for deduplication, link resolution, and detail map lookups. Rename labels freely never change IDs once a graph is in circulation.
 
-**Use the description field for sourcing.** The description is free text — cite your primary documents inline: `(Reuters, 14 March 2024)` or `[SEC filing 2021-13D]`. This keeps the evidence attached to the entity.
+**Use the description field for sourcing.** The description is free text cite your primary documents inline: `(Reuters, 14 March 2024)` or `[SEC filing 2021-13D]`. This keeps the evidence attached to the entity.
 
 **Layer is a research tool.** Layer 0 = most central/structural. Layer 5 = peripheral. Using layers consistently (e.g. 0 = infrastructure, 2 = capital, 4 = political output) makes ego-view navigation much more readable.
 

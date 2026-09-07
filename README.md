@@ -53,7 +53,7 @@ Links connect two nodes and carry a type and an optional label.
 | Type | Yes | The relationship type. Determines the link's colour. Start typing to see suggestions, or enter anything, custom types are accepted and registered automatically. |
 | Label | No | Short factual description of this specific connection. Shown in the side panel connection list. |
 
-Links are treated as **undirected** for duplicate checking — you cannot have both A→B and B→A.
+Links are treated as **undirected** for duplicate checking you cannot have both A→B and B→A.
 
 **Custom link types:** just type anything in the Edge Type field. If the type isn't in the built-in registry it gets assigned a neutral grey colour. Built-in types and their colours are listed in the [Link Types](#link-types) reference below.
 
@@ -66,7 +66,7 @@ The **Link Details** tab (Edit → Link Details) lets you document the evidence 
 | Field | Description |
 |---|---|
 | **WHAT** | Factual description of the relationship. |
-| **HOW** | The mechanism — how it operates, with document/filing references. |
+| **HOW** | The mechanism how it operates, with document/filing references. |
 | **IMPACT** | Documented outcome or systemic significance. |
 | **Sources** | One source per line: `Label \| https://url.com` |
 

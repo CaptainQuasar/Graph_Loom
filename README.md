@@ -2,7 +2,7 @@
 
 > Build, annotate, and share relationship graphs — fully offline, no accounts, no server.
 
-Graph Canvas is a single `.html` file. Open it in any browser and you have a working graph tool. Every download you create is itself a fully working copy of the tool, complete with your data. Share the file and the recipient can explore, annotate, and extend it — no installation, no login, nothing to install.
+Graph Canvas is a single `.html` file. Open it in any browser and you have a working graph tool. Every download you create is itself a fully working copy of the tool, complete with your data. Share the file and the recipient can explore, annotate, and extend it, no installation, no login, nothing to install.
 
 ---
 
@@ -14,7 +14,7 @@ Graph Canvas is a single `.html` file. Open it in any browser and you have a wor
 4. Add your own nodes and links, or clear the sample via **Edit → Import/Export → ✕ Clear All**
 5. When ready to share: **Edit → Import/Export → ⬇ Download as HTML**
 
-The downloaded file opens identically in any browser and contains the full editor — your recipient can continue building.
+The downloaded file opens identically in any browser and contains the full editor your recipient can continue building.
 
 ---
 

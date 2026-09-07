@@ -76,7 +76,7 @@ as a data controller.
 150–200 nodes in a single graph. The D3 force simulation runs in the
 browser's main thread. Large graphs may be slow to render, especially
 on mobile devices or older hardware. For larger investigations, use the
-Graph Loom Workstation.
+Graph Loom Workstation(under development).
 
 **Browser compatibility.** This tool requires a modern browser with
 support for ES2020+, Web Crypto API, and the File API. It has been

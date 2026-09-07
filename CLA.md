@@ -7,7 +7,7 @@ Thank you for your interest in contributing to Graph Loom
 
 This Contributor License Agreement ("CLA") clarifies the intellectual
 property rights granted with contributions to the Project. This is a
-legally binding document — please read it carefully.
+legally binding document, please read it carefully.
 
 ---
 
@@ -15,8 +15,8 @@ legally binding document — please read it carefully.
 
 **"You"** means the individual submitting a contribution.
 
-**"Contribution"** means any original work — including source code,
-documentation, bug reports with patches, or other material — that you
+**"Contribution"** means any original work, including source code,
+documentation, bug reports with patches, or other material that you
 intentionally submit to the Project via pull request, patch, issue, or
 any other means.
 

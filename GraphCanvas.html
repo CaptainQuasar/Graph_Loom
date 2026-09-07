@@ -1,3 +1,29 @@
+<!--
+  Graph Loom -- GraphCanvas.html
+  Copyright (C) 2026 Ruben Thorell
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  Source: https://github.com/CaptainQuasar/Graph_Loom
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+  ADDITIONAL PERMISSION (AGPL-3.0 Section 7):
+  The Graph Loom Workstation commercial product may bundle, include,
+  and distribute this file without being considered a combined work
+  for the purposes of Sections 5 and 13 of this licence. Output files
+  produced by the Workstation that contain this file remain subject to
+  the AGPL-3.0 terms above.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1929,6 +1955,31 @@ document.getElementById('editor-export-download-btn').addEventListener('click', 
 // ── WIRE UP: IMPORT ──────────────────────────────────────────
 document.getElementById('editor-import-btn').addEventListener('click', editorImportJSON);
 
+// File picker — loads JSON file into the import textarea so the user
+// can review before committing. Works on mobile (OS file picker) and
+// desktop (drag & drop via the OS picker, or keyboard navigation).
+document.getElementById('editor-load-json-file-btn').addEventListener('click', () => {
+  document.getElementById('editor-json-file-input').click();
+});
+document.getElementById('editor-json-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const ta = document.getElementById('editor-import-text');
+    if (ta) {
+      ta.value = ev.target.result;
+      editorStatus(document.getElementById('editor-import-status'),
+        `✓ "${file.name}" loaded — review below, then Import or Merge.`, 'ok');
+    }
+  };
+  reader.onerror = () => editorStatus(
+    document.getElementById('editor-import-status'), '⚠ Could not read file.', 'err'
+  );
+  reader.readAsText(file);
+  e.target.value = ''; // reset so the same file can be re-picked
+});
+
 // ── INLINE TITLE EDIT ─────────────────────────────────────────
 // Toggle contenteditable on the header title div on click.
 // Blur/Enter commits; Escape restores. Syncs graphTitle + export-tab input.
@@ -3085,9 +3136,13 @@ if (ENCRYPTED_PAYLOAD && ENCRYPTED_PAYLOAD.ct) {
         <div class="editor-export-area">
           <p class="editor-export-desc" style="font-weight:700;color:var(--accent2);margin-bottom:4px">⬆ Import JSON</p>
           <p class="editor-export-desc">
-            Paste a previously exported JSON (or any valid <code>{ nodes: […], links: […] }</code> structure) and click Import.
-            <strong>This replaces the entire current graph.</strong>
+            Load a <code>.json</code> file or paste directly. Review the content in the box below, then click Import or Merge.
+            <strong>Import &amp; Replace wipes the current graph.</strong>
           </p>
+          <div class="editor-export-btns" style="margin-bottom:8px">
+            <button class="editor-btn secondary" id="editor-load-json-file-btn">📂 Load JSON file</button>
+            <input type="file" id="editor-json-file-input" accept=".json" style="display:none">
+          </div>
           <div class="editor-export-btns">
             <button class="editor-btn" id="editor-import-btn" style="background:var(--accent2)">⬆ Import &amp; Replace</button>
             <button class="editor-btn secondary" id="editor-merge-btn">⊕ Merge</button>

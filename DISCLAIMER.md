@@ -1,6 +1,6 @@
 # Disclaimer & Known Limitations
 
-**Graph Loom — GraphCanvas.html**
+**Graph Loom / GraphCanvas.html**
 Copyright (C) 2026 Ruben Thorell
 https://github.com/CaptainQuasar/Graph_Loom
 
@@ -35,7 +35,7 @@ filings, or potential defamation exposure, consult a qualified legal
 professional before sharing or publishing.
 
 **Not a secure communications channel.** The encryption feature protects
-data at rest in the file — it does not protect the transmission of the
+data at rest in the file, it does not protect the transmission of the
 file itself, the passphrase, or any associated communications. Use
 appropriate secure channels for sensitive material.
 
@@ -46,11 +46,11 @@ appropriate secure channels for sensitive material.
 You are solely responsible for the content of any graph you create,
 share, or publish using this tool. This includes:
 
-- **Accuracy** — verifying that information entered is factually correct
+- **Accuracy** verifying that information entered is factually correct
   and appropriately sourced.
-- **Fairness** — ensuring that claims about individuals and organisations
+- **Fairness** ensuring that claims about individuals and organisations
   are substantiated and proportionate.
-- **Legality** — complying with applicable laws in your jurisdiction,
+- **Legality** complying with applicable laws in your jurisdiction,
   including those governing defamation, privacy, data protection, and
   the handling of personal information.
 

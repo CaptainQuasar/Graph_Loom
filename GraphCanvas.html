@@ -294,6 +294,69 @@ body::before {
   border-radius: 0 2px 2px 0;
 }
 .panel-sources strong { color: var(--accent); font-weight: 700; letter-spacing: 0.03em; }
+
+/* ─── MERGE CONFLICT MODAL ───────────────────────── */
+#merge-conflict-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  z-index: 9998; align-items: flex-start; justify-content: center;
+  padding: 24px 16px; overflow-y: auto; font-family: 'DM Sans', sans-serif;
+}
+#merge-conflict-panel {
+  background: var(--surface); border: 1px solid var(--accent2);
+  border-radius: 6px; width: 100%; max-width: 860px;
+  display: flex; flex-direction: column; max-height: 90vh;
+}
+#merge-conflict-header {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); border-radius: 6px 6px 0 0;
+  display: flex; align-items: baseline; gap: 12px; flex-shrink: 0;
+}
+#merge-conflict-header h2 {
+  font-family: 'Crimson Pro', serif; font-size: 1rem; font-weight: 700;
+  color: var(--accent2); margin: 0;
+}
+#merge-conflict-summary { font-size: 0.68rem; color: var(--text-dim); }
+#merge-conflict-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+#merge-conflict-footer {
+  padding: 12px 20px; border-top: 1px solid var(--border);
+  background: var(--surface2); border-radius: 0 0 6px 6px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0;
+}
+.conflict-card {
+  border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+}
+.conflict-card-header {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.conflict-card-id {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--accent2); text-transform: uppercase; flex: 1;
+}
+.conflict-card-actions { display: flex; gap: 6px; }
+.conflict-field-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; }
+.conflict-field-table th {
+  padding: 6px 10px; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-dim); background: var(--surface);
+  border-bottom: 1px solid var(--border); text-align: left;
+}
+.conflict-field-table td { padding: 6px 10px; vertical-align: top; border-bottom: 1px solid var(--surface2); }
+.conflict-field-table tr:last-child td { border-bottom: none; }
+.conflict-field-name { font-weight: 700; color: var(--text-dim); white-space: nowrap; width: 80px; }
+.conflict-field-val {
+  color: var(--text); max-width: 260px; word-break: break-word;
+  white-space: pre-wrap; max-height: 60px; overflow: hidden;
+}
+.conflict-field-val.dim { color: var(--text-dim); font-style: italic; }
+.conflict-row-diff { background: rgba(122,24,72,0.04); }
+.conflict-row-same td { opacity: 0.45; }
+.conflict-choice { white-space: nowrap; }
+.conflict-choice label { display: flex; align-items: center; gap: 4px; cursor: pointer; margin-bottom: 3px; font-size: 0.65rem; }
+@media (max-width: 640px) {
+  #merge-conflict-overlay { padding: 0; align-items: flex-start; }
+  #merge-conflict-panel { max-height: 100dvh; border-radius: 0; }
+  .conflict-field-val { max-width: 120px; }
+}
 .appendix-badge {
   display: inline-block; font-size: 0.55rem; font-weight: 700; padding: 2px 6px;
   border-radius: 2px; color: white; background: #996515; margin-left: 6px;
@@ -502,6 +565,23 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #controls { bottom: 10px; }
 }
 </style>
+
+<!-- MERGE CONFLICT MODAL -->
+<div id="merge-conflict-overlay">
+  <div id="merge-conflict-panel">
+    <div id="merge-conflict-header">
+      <h2>⚠ Merge Conflicts</h2>
+      <span id="merge-conflict-summary"></span>
+    </div>
+    <div id="merge-conflict-body"><!-- conflict cards injected by JS --></div>
+    <div id="merge-conflict-footer">
+      <button class="editor-btn" id="merge-apply-btn">✓ Apply Merge</button>
+      <button class="editor-btn secondary" id="merge-keep-all-btn">↩ Keep all current</button>
+      <button class="editor-btn secondary" id="merge-take-all-btn">↪ Take all incoming</button>
+      <button class="editor-btn secondary" id="merge-cancel-btn" style="margin-left:auto">✕ Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- WELCOME MODAL -->
 <div id="welcome-overlay">
@@ -2085,34 +2165,150 @@ function exportSVG() {
 }
 document.getElementById('editor-download-svg-btn').addEventListener('click', exportSVG);
 
-function editorMergeJSON() {
-  const raw    = document.getElementById('editor-import-text')?.value.trim();
+// ── MERGE — conflict-aware three-phase implementation ────────────
+//
+// Phase 1: Classify incoming nodes into:
+//   clean    — ID not present → add immediately, no UI
+//   same     — ID present, all fields identical → skip silently
+//   conflict — ID present, ≥1 field differs → queue for resolution
+//
+// Phase 2: If conflicts exist, show the resolution modal and wait.
+// Phase 3: Apply — add clean nodes/links, patch conflict resolutions,
+//          merge link details.
+
+const _MERGE_FIELDS = ['label', 'cat', 'r', 'year', 'layer', 'title', 'desc'];
+
+let _mergeQueue = null; // pending merge data while modal is open
+
+function _fieldDiffs(existing, incoming) {
+  const diffs = {};
+  for (const f of _MERGE_FIELDS) {
+    const ev = String(existing[f] ?? ''), iv = String(incoming[f] ?? '');
+    if (ev !== iv) diffs[f] = { current: existing[f], incoming: incoming[f] };
+  }
+  const evCur = JSON.stringify(existing.events || []);
+  const evInc = JSON.stringify(incoming.events || []);
+  if (evCur !== evInc) diffs.events = {
+    current: existing.events || [], incoming: incoming.events || []
+  };
+  return diffs;
+}
+
+function _formatVal(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (Array.isArray(v)) return `${v.length} event${v.length !== 1 ? 's' : ''}`;
+  return String(v);
+}
+
+function _buildConflictCard(conflictObj) {
+  const { id, existing, incoming, diffs } = conflictObj;
+  const allFields = [..._MERGE_FIELDS, 'events'];
+  const rows = allFields.map(f => {
+    const isDiff = !!diffs[f];
+    const cur = isDiff ? diffs[f].current  : existing[f];
+    const inc = isDiff ? diffs[f].incoming : incoming[f];
+    const rowClass = isDiff ? 'conflict-row-diff' : 'conflict-row-same';
+    const radioHtml = isDiff ? `
+      <div class="conflict-choice">
+        <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="current" checked> Current</label>
+        <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="incoming"> Incoming</label>
+      </div>` : '<span style="font-size:0.6rem;color:var(--text-dim)">same</span>';
+    return `<tr class="${rowClass}">
+      <td class="conflict-field-name">${f}</td>
+      <td class="conflict-field-val${isDiff ? '' : ' dim'}">${escHtml(_formatVal(cur))}</td>
+      <td class="conflict-field-val${isDiff ? '' : ' dim'}">${escHtml(_formatVal(inc))}</td>
+      <td class="conflict-choice">${radioHtml}</td>
+    </tr>`;
+  }).join('');
+
+  const diffCount = Object.keys(diffs).length;
+  return `<div class="conflict-card" data-conflict-id="${escHtml(id)}">
+    <div class="conflict-card-header">
+      <span class="conflict-card-id">${escHtml(id)}</span>
+      <span style="font-size:0.62rem;color:var(--accent2)">${diffCount} field${diffCount !== 1 ? 's' : ''} differ</span>
+      <div class="conflict-card-actions">
+        <button class="editor-btn secondary" style="padding:2px 8px;font-size:0.6rem"
+          data-card-action="keep" data-card-id="${escHtml(id)}">↩ Keep current</button>
+        <button class="editor-btn secondary" style="padding:2px 8px;font-size:0.6rem"
+          data-card-action="take" data-card-id="${escHtml(id)}">↪ Take incoming</button>
+      </div>
+    </div>
+    <table class="conflict-field-table">
+      <thead><tr>
+        <th style="width:80px">Field</th>
+        <th>Current (in graph)</th>
+        <th>Incoming (from JSON)</th>
+        <th style="width:130px">Keep</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function _readConflictResolutions() {
+  // Walk every conflict card and read the radio selections
+  const resolutions = {};
+  document.querySelectorAll('.conflict-card[data-conflict-id]').forEach(card => {
+    const id = card.dataset.conflictId;
+    resolutions[id] = {};
+    _MERGE_FIELDS.concat(['events']).forEach(f => {
+      const radio = card.querySelector(`input[name="cf-${CSS.escape(id)}-${f}"]:checked`);
+      if (radio) resolutions[id][f] = radio.value;
+    });
+  });
+  return resolutions;
+}
+
+function _setAllRadios(choice) {
+  document.querySelectorAll('.conflict-card input[type="radio"]').forEach(r => {
+    if (r.value === choice) r.checked = true;
+  });
+}
+
+function _setCardRadios(cardId, choice) {
+  const card = document.querySelector(`.conflict-card[data-conflict-id="${CSS.escape(cardId)}"]`);
+  if (!card) return;
+  card.querySelectorAll('input[type="radio"]').forEach(r => {
+    if (r.value === choice) r.checked = true;
+  });
+}
+
+function _applyMerge(resolutions) {
+  if (!_mergeQueue) return;
+  const { cleanNodes, cleanLinks, linkConflicts, inLinks, inDetails, parsed } = _mergeQueue;
   const status = document.getElementById('editor-import-status');
-  if (!raw) { editorStatus(status, '⚠ Paste JSON first.', 'err'); return; }
-  let parsed;
-  try { parsed = JSON.parse(raw); }
-  catch(e) { editorStatus(status, '⚠ Invalid JSON.', 'err'); return; }
 
-  const inNodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
-  const inLinks = Array.isArray(parsed.links) ? parsed.links : [];
+  // Apply conflict resolutions to existing nodes
+  let patched = 0;
+  for (const conflictObj of (_mergeQueue.conflicts || [])) {
+    const { id, diffs } = conflictObj;
+    const res = resolutions[id] || {};
+    const existingNode = nodes.find(n => n.id === id);
+    if (!existingNode) continue;
+    let changed = false;
+    for (const f of Object.keys(diffs)) {
+      if (res[f] === 'incoming') {
+        existingNode[f] = diffs[f].incoming;
+        changed = true;
+      }
+    }
+    if (changed) patched++;
+  }
 
-  // Deduplicate by node id
+  // Add clean new nodes
   const existingIds = new Set(nodes.map(n => n.id));
-  // Deduplicate links by source::target (order-insensitive)
-  const existingPairs = new Set(
-    links.map(l => { const s = lid(l.source), t = lid(l.target); return s < t ? s+'::'+t : t+'::'+s; })
-  );
-
-  let addedNodes = 0, skippedNodes = 0, addedLinks = 0, skippedLinks = 0;
-
-  inNodes.forEach(n => {
-    if (!n.id) return;
-    if (existingIds.has(n.id)) { skippedNodes++; return; }
+  let addedNodes = 0;
+  cleanNodes.forEach(n => {
     nodes.push({ ...n, events: n.events || [], ring: 3, _targetRadius: 580 });
     existingIds.add(n.id);
     addedNodes++;
   });
 
+  // Add links — only if both endpoints now exist
+  const existingPairs = new Set(
+    links.map(l => { const s = lid(l.source), t = lid(l.target); return s < t ? s+'::'+t : t+'::'+s; })
+  );
+  let addedLinks = 0, skippedLinks = 0;
   inLinks.forEach(l => {
     const s = l.source?.id || l.source;
     const t = l.target?.id || l.target;
@@ -2124,20 +2320,114 @@ function editorMergeJSON() {
     addedLinks++;
   });
 
-  // Merge link details — skip if key already documented
-  if (parsed.linkDetails && typeof parsed.linkDetails === 'object') {
-    Object.entries(parsed.linkDetails).forEach(([k, v]) => {
+  // Merge link details
+  if (inDetails && typeof inDetails === 'object') {
+    Object.entries(inDetails).forEach(([k, v]) => {
       if (!LINK_DETAIL_MAP[k]) LINK_DETAIL_MAP[k] = v;
     });
   }
 
+  // Close modal and rebuild
+  document.getElementById('merge-conflict-overlay').style.display = 'none';
+  _mergeQueue = null;
   rebuildGraphData();
   autosave();
-  const msg = `✓ Merged: +${addedNodes} nodes, +${addedLinks} links` +
-    (skippedNodes + skippedLinks ? ` (${skippedNodes + skippedLinks} duplicates skipped)` : '') + '.';
-  editorStatus(status, msg, 'ok');
+
+  const parts = [];
+  if (addedNodes)  parts.push(`+${addedNodes} nodes`);
+  if (patched)     parts.push(`${patched} updated`);
+  if (addedLinks)  parts.push(`+${addedLinks} links`);
+  if (skippedLinks) parts.push(`${skippedLinks} links skipped`);
+  editorStatus(status, `✓ Merged: ${parts.join(', ') || 'nothing new'}.`, 'ok');
 }
+
+function _showConflictModal(conflicts, cleanNodes, inLinks, inDetails, parsed) {
+  _mergeQueue = { conflicts, cleanNodes, inLinks, inDetails, parsed };
+  const body = document.getElementById('merge-conflict-body');
+  const summary = document.getElementById('merge-conflict-summary');
+  summary.textContent =
+    `${conflicts.length} node conflict${conflicts.length !== 1 ? 's' : ''} — ` +
+    `${cleanNodes.length} new node${cleanNodes.length !== 1 ? 's' : ''} ready to add`;
+  body.innerHTML = conflicts.map(_buildConflictCard).join('');
+  document.getElementById('merge-conflict-overlay').style.display = 'flex';
+}
+
+function editorMergeJSON() {
+  const raw    = document.getElementById('editor-import-text')?.value.trim();
+  const status = document.getElementById('editor-import-status');
+  if (!raw) { editorStatus(status, '⚠ Paste JSON first.', 'err'); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { editorStatus(status, '⚠ Invalid JSON.', 'err'); return; }
+
+  const inNodes   = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+  const inLinks   = Array.isArray(parsed.links) ? parsed.links : [];
+  const inDetails = parsed.linkDetails || {};
+
+  // Phase 1 — Classify
+  const nodeMap_ = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const cleanNodes = [], conflicts = [], silentSame = [];
+
+  inNodes.forEach(n => {
+    if (!n.id) return;
+    if (!nodeMap_[n.id]) { cleanNodes.push(n); return; }
+    const diffs = _fieldDiffs(nodeMap_[n.id], n);
+    if (Object.keys(diffs).length === 0) { silentSame.push(n.id); return; }
+    conflicts.push({ id: n.id, existing: nodeMap_[n.id], incoming: n, diffs });
+  });
+
+  // Phase 2 — If conflicts, show modal and stop here
+  if (conflicts.length > 0) {
+    editorStatus(status, `⚠ ${conflicts.length} conflict${conflicts.length !== 1 ? 's' : ''} found — resolve below.`, 'err');
+    _showConflictModal(conflicts, cleanNodes, inLinks, inDetails, parsed);
+    return;
+  }
+
+  // No conflicts — add clean nodes directly (original fast path)
+  const existingIds = new Set(nodes.map(n => n.id));
+  const existingPairs = new Set(
+    links.map(l => { const s = lid(l.source), t = lid(l.target); return s < t ? s+'::'+t : t+'::'+s; })
+  );
+  let addedNodes = 0, addedLinks = 0, skippedLinks = 0;
+  cleanNodes.forEach(n => {
+    nodes.push({ ...n, events: n.events || [], ring: 3, _targetRadius: 580 });
+    existingIds.add(n.id);
+    addedNodes++;
+  });
+  inLinks.forEach(l => {
+    const s = l.source?.id || l.source, t = l.target?.id || l.target;
+    if (!s || !t || !existingIds.has(s) || !existingIds.has(t)) { skippedLinks++; return; }
+    const key = s < t ? s+'::'+t : t+'::'+s;
+    if (existingPairs.has(key)) { skippedLinks++; return; }
+    links.push({ source: s, target: t, type: l.type, label: l.label });
+    existingPairs.add(key);
+    addedLinks++;
+  });
+  Object.entries(inDetails).forEach(([k, v]) => { if (!LINK_DETAIL_MAP[k]) LINK_DETAIL_MAP[k] = v; });
+  rebuildGraphData();
+  autosave();
+  const parts = [`+${addedNodes} nodes`, `+${addedLinks} links`];
+  if (silentSame.length) parts.push(`${silentSame.length} identical (skipped)`);
+  editorStatus(status, `✓ Merged: ${parts.join(', ')}.`, 'ok');
+}
+
 document.getElementById('editor-merge-btn').addEventListener('click', editorMergeJSON);
+
+// Conflict modal wiring
+document.getElementById('merge-apply-btn').addEventListener('click', () => {
+  _applyMerge(_readConflictResolutions());
+});
+document.getElementById('merge-keep-all-btn').addEventListener('click', () => _setAllRadios('current'));
+document.getElementById('merge-take-all-btn').addEventListener('click', () => _setAllRadios('incoming'));
+document.getElementById('merge-cancel-btn').addEventListener('click', () => {
+  document.getElementById('merge-conflict-overlay').style.display = 'none';
+  _mergeQueue = null;
+});
+document.getElementById('merge-conflict-body').addEventListener('click', e => {
+  const btn = e.target.closest('[data-card-action]');
+  if (!btn) return;
+  _setCardRadios(btn.dataset.cardId, btn.dataset.cardAction === 'take' ? 'incoming' : 'current');
+});
 
 // Graph title — live-update header and document title as user types
 document.getElementById('graph-title-input').addEventListener('input', e => {

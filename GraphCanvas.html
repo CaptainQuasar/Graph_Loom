@@ -2180,6 +2180,31 @@ const _MERGE_FIELDS = ['label', 'cat', 'r', 'year', 'layer', 'title', 'desc'];
 
 let _mergeQueue = null; // pending merge data while modal is open
 
+// A linkDetail is "substantive" if it has any real content — not just an
+// empty/draft placeholder. This prevents a blank local card from silently
+// blocking an incoming fully-researched detail from being imported.
+function _detailIsSubstantive(d) {
+  if (!d) return false;
+  return !!(d.what?.trim() || d.how?.trim() || d.impact?.trim() ||
+            (Array.isArray(d.sources) && d.sources.some(s => s.l || s.u)));
+}
+
+// Merge two events arrays: concatenate, deduplicate by year+text, sort chronologically.
+function _mergeEventsArrays(cur, inc) {
+  const combined = [...(cur || []), ...(inc || [])];
+  const seen = new Set();
+  return combined
+    .filter(e => {
+      const key = `${String(e.year ?? '')}::${String(e.text ?? '')}`;
+      return seen.has(key) ? false : (seen.add(key), true);
+    })
+    .sort((a, b) => {
+      const ay = parseInt(a.year), by = parseInt(b.year);
+      if (!isNaN(ay) && !isNaN(by)) return ay - by;
+      return String(a.year ?? '').localeCompare(String(b.year ?? ''));
+    });
+}
+
 function _fieldDiffs(existing, incoming) {
   const diffs = {};
   for (const f of _MERGE_FIELDS) {
@@ -2208,11 +2233,18 @@ function _buildConflictCard(conflictObj) {
     const cur = isDiff ? diffs[f].current  : existing[f];
     const inc = isDiff ? diffs[f].incoming : incoming[f];
     const rowClass = isDiff ? 'conflict-row-diff' : 'conflict-row-same';
-    const radioHtml = isDiff ? `
-      <div class="conflict-choice">
-        <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="current" checked> Current</label>
-        <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="incoming"> Incoming</label>
-      </div>` : '<span style="font-size:0.6rem;color:var(--text-dim)">same</span>';
+    const radioHtml = isDiff
+      ? (f === 'events'
+          ? `<div class="conflict-choice">
+          <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="current" checked> Current (${(diffs[f]?.current || []).length} events)</label>
+          <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="incoming"> Incoming (${(diffs[f]?.incoming || []).length} events)</label>
+          <label style="color:var(--accent)"><input type="radio" name="cf-${escHtml(id)}-${f}" value="merge"> ⊕ Merge both</label>
+        </div>`
+          : `<div class="conflict-choice">
+          <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="current" checked> Current</label>
+          <label><input type="radio" name="cf-${escHtml(id)}-${f}" value="incoming"> Incoming</label>
+        </div>`)
+      : '<span style="font-size:0.6rem;color:var(--text-dim)">same</span>';
     return `<tr class="${rowClass}">
       <td class="conflict-field-name">${f}</td>
       <td class="conflict-field-val${isDiff ? '' : ' dim'}">${escHtml(_formatVal(cur))}</td>
@@ -2290,7 +2322,12 @@ function _applyMerge(resolutions) {
       if (res[f] === 'incoming') {
         existingNode[f] = diffs[f].incoming;
         changed = true;
+      } else if (res[f] === 'merge' && f === 'events') {
+        // Concatenate, deduplicate, sort — never loses either side's history
+        existingNode[f] = _mergeEventsArrays(diffs[f].current, diffs[f].incoming);
+        changed = true;
       }
+      // res[f] === 'current' (or undefined) → no change, keep existing value
     }
     if (changed) patched++;
   }
@@ -2320,10 +2357,11 @@ function _applyMerge(resolutions) {
     addedLinks++;
   });
 
-  // Merge link details
+  // Merge link details — only skip if the existing entry is substantive.
+  // An empty/draft placeholder should not block an incoming researched detail.
   if (inDetails && typeof inDetails === 'object') {
     Object.entries(inDetails).forEach(([k, v]) => {
-      if (!LINK_DETAIL_MAP[k]) LINK_DETAIL_MAP[k] = v;
+      if (!_detailIsSubstantive(LINK_DETAIL_MAP[k])) LINK_DETAIL_MAP[k] = v;
     });
   }
 
@@ -2403,7 +2441,9 @@ function editorMergeJSON() {
     existingPairs.add(key);
     addedLinks++;
   });
-  Object.entries(inDetails).forEach(([k, v]) => { if (!LINK_DETAIL_MAP[k]) LINK_DETAIL_MAP[k] = v; });
+  Object.entries(inDetails).forEach(([k, v]) => {
+    if (!_detailIsSubstantive(LINK_DETAIL_MAP[k])) LINK_DETAIL_MAP[k] = v;
+  });
   rebuildGraphData();
   autosave();
   const parts = [`+${addedNodes} nodes`, `+${addedLinks} links`];

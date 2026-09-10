@@ -304,7 +304,7 @@ These are documented limitations of the merge system. Three have been mitigated 
 
 Because `id` is the sole merge key, slight variations create separate disconnected nodes instead of triggering a conflict. If one contributor uses `acme_corp` and another uses `acme_llc` for the same entity, both will appear on the canvas as distinct nodes, splitting their respective links.
 
-**Mitigation:** Establish an **ID ledger** before starting a multi-contributor investigation — a shared list defining the exact `id` strings for primary targets. The ID ledger can be as simple as a shared note or spreadsheet column. Once a graph is in circulation, IDs must be treated as permanent.
+**Mitigation:** Establish an **ID ledger** before starting a multi-contributor investigation, a shared list defining the exact `id` strings for primary targets. The ID ledger can be as simple as a shared note or spreadsheet column. Once a graph is in circulation, IDs must be treated as permanent.
 
 ### Array Replacement vs. Concatenation *(mitigated)*
 
@@ -321,9 +321,9 @@ Previously, any existing `linkDetails` entry — including blank or draft placeh
 
 If you encounter a case where neither detail should be discarded, use **Edit → Link Details** to manually copy content between them before merging.
 
-### Link Type Fragmentation *(architectural — requires coordination)*
+### Link Type Fragmentation *(architectural, requires coordination)*
 
-Link type strings are free-text. `board_member` and `director` entered by different contributors will render as separate relationship types — different colours, separate filter entries, cluttered suggestion list.
+Link type strings are free-text. `board_member` and `director` entered by different contributors will render as separate relationship types, different colours, separate filter entries, cluttered suggestion list.
 
 **Mitigation:** Agree on link type vocabulary before starting, using the built-in types as a baseline. Add any domain-specific types to the shared ID ledger alongside node IDs.
 

@@ -57,7 +57,7 @@ Each node represents an entity - a person, company, organisation, fund, or anyth
 | Type | Yes | Relationship type — determines link colour. Type freely; custom types auto-register. |
 | Label | No | Short factual description. Shown in the side panel connection list. |
 
-Links are **undirected** for duplicate checking — you cannot have both A→B and B→A.
+Links are **undirected** for duplicate checking, you cannot have both A→B and B→A.
 
 **Custom link types:** type anything. Unrecognised types get a neutral grey colour and are added to the suggestions list for the session.
 

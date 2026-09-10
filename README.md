@@ -1,8 +1,8 @@
 # Graph Loom
 
-> Build, annotate, and share relationship graphs fully offline, no accounts, no server.
+> Build, annotate, and share relationship graphs, fully offline, no accounts, no server.
 
-**Graph Loom** is a single `.html` file (`GraphCanvas.html`). Open it in any browser and you have a working graph tool. Every download you create is itself a fully working copy of the tool, complete with your data. Share the file and the recipient can explore, annotate, and extend it — no installation, no login, no account required.
+**Graph Loom** is a single `.html` file (`GraphCanvas.html`). Open it in any browser and you have a working graph tool. Every download you create is itself a fully working copy of the tool, complete with your data. Share the file and the recipient can explore, annotate, and extend it, no installation, no login, no account required.
 
 [![AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
 
@@ -11,7 +11,7 @@
 ## Quick Start
 
 1. Download `GraphCanvas.html` from this repository
-2. Open it in any modern browser the sample graph loads automatically
+2. Open it in any modern browser, the sample graph loads automatically
 3. Click any node to explore. Click **✏ Edit** in the header to start building your own
 4. Clear the sample via **Edit → Import/Export → ✕ Clear All**, or load your own data via **📂 Load JSON file**
 5. When ready to share: **Edit → Import/Export → ⬇ Download as HTML**
@@ -30,7 +30,7 @@ Click the title text in the header to rename it inline. Press **Enter** to confi
 
 ### Nodes
 
-Each node represents an entity, a person, company, organisation, fund, or anything else.
+Each node represents an entity - a person, company, organisation, fund, or anything else.
 
 | Field | Required | Description |
 |---|---|---|
@@ -57,7 +57,7 @@ Each node represents an entity, a person, company, organisation, fund, or anythi
 | Type | Yes | Relationship type — determines link colour. Type freely; custom types auto-register. |
 | Label | No | Short factual description. Shown in the side panel connection list. |
 
-Links are **undirected** for duplicate checking you cannot have both A→B and B→A.
+Links are **undirected** for duplicate checking — you cannot have both A→B and B→A.
 
 **Custom link types:** type anything. Unrecognised types get a neutral grey colour and are added to the suggestions list for the session.
 
@@ -102,7 +102,7 @@ Open via **Edit → Import / Export**.
 
 **Conflict resolution modal:** each conflicting node gets a card showing the current and incoming versions side by side, field by field. Radio buttons per field let you choose which value to keep. Per-card buttons (↩ Keep current / ↪ Take incoming) apply to all fields of that node. Global footer buttons act across all conflicts at once. Click **Apply Merge** when done.
 
-Link details are merged additively existing keys are kept, new ones added.
+Link details are merged additively, existing keys are kept, new ones added.
 
 ### Download as HTML
 
@@ -114,12 +114,12 @@ Exports the current canvas view as a scalable vector `.svg`. Suitable for public
 
 ### 🔒 Download Encrypted HTML
 
-Encrypts the graph data using **AES-256-GCM** (PBKDF2, 200,000 iterations, SHA-256, 16-byte random salt). The downloaded file is a standard `.html` opens in any browser but contains only ciphertext. Without the passphrase it is completely inert.
+Encrypts the graph data using **AES-256-GCM** (PBKDF2, 200,000 iterations, SHA-256, 16-byte random salt). The downloaded file is a standard `.html` opens in any browser, but contains only ciphertext. Without the passphrase it is completely inert.
 
 1. Click **🔒 Download Encrypted**
-2. Enter and confirm a passphrase (minimum 4 characters longer is better)
+2. Enter and confirm a passphrase (minimum 4 characters, longer is better)
 3. File downloads
-4. A **passphrase reveal modal** appears immediately copy the passphrase and share it via a separate channel (Signal, in person)
+4. A **passphrase reveal modal** appears immediately, copy the passphrase and share it via a separate channel (Signal, in person)
 
 **Opening an encrypted file:** a password prompt appears. Enter the passphrase, if correct, the graph decrypts entirely in browser RAM and renders. Wrong passphrase shows an error; retry.
 
@@ -138,14 +138,14 @@ Multiple people can build a graph together with no shared server.
 **Workflow:**
 1. Each person builds their subgraph and exports JSON
 2. One person opens a shared base file and uses **⊕ Merge** for each contributor's JSON
-3. The conflict modal resolves any overlapping nodes fields can be merged selectively
+3. The conflict modal resolves any overlapping nodes, fields can be merged selectively
 4. The merged graph downloads as HTML and is reshared
 
 **Tips:**
-- Agree on node IDs before starting,the ID is the merge key. `acme_corp` from two people merges cleanly; `acme` and `acme_corp` for the same entity won't.
-- Use the **Graph Title** to track versions: `Investigation A merged 2026-03-15`
+- Agree on node IDs before starting, the ID is the merge key. `acme_corp` from two people merges cleanly; `acme` and `acme_corp` for the same entity won't.
+- Use the **Graph Title** to track versions: `Investigation A, merged 2026-03-15`
 - Export JSON before every merge as a rollback point
-- Identical nodes (same ID, same fields) are always skipped silently safe to merge the same file twice
+- Identical nodes (same ID, same fields) are always skipped silently, safe to merge the same file twice
 
 ---
 
@@ -249,9 +249,9 @@ Any string is accepted. Unrecognised types render in neutral grey and are added 
 
 ## Tips for Investigators
 
-**Keep IDs stable.** The node ID is the permanent merge key. Rename labels freely, never change IDs once a graph is in circulation.
+**Keep IDs stable.** The node ID is the permanent merge key. Rename labels freely — never change IDs once a graph is in circulation.
 
-**Source inline.** The description is free text cite documents inline: `(Reuters, 14 March 2024)` or `[SEC 2021-13D]`. Evidence stays attached to the entity.
+**Source inline.** The description is free text — cite documents inline: `(Reuters, 14 March 2024)` or `[SEC 2021-13D]`. Evidence stays attached to the entity.
 
 **Use layers deliberately.** Layer 0 = most structural/central. Layer 5 = peripheral. Consistent layering (e.g. 0 = infrastructure, 2 = capital, 4 = political output) makes ego-view navigation far more readable.
 
@@ -261,13 +261,13 @@ Any string is accepted. Unrecognised types render in neutral grey and are added 
 
 **Encryption channel hygiene.** File by email or USB. Passphrase by Signal or in person. Never together.
 
-**Merge conflicts are data, not errors.** When two contributors have updated the same node differently, the conflict modal lets you pick field by field you may want the incoming description but keep your own event timeline.
+**Merge conflicts are data, not errors.** When two contributors have updated the same node differently, the conflict modal lets you pick field by field — you may want the incoming description but keep your own event timeline.
 
 ---
 
 ## Operational Limits
 
-Graph Loom uses D3 force simulation on an SVG canvas everything runs in the browser.
+Graph Loom uses D3 force simulation on an SVG canvas — everything runs in the browser.
 
 | Node count | Expected behaviour |
 |---|---|
@@ -290,6 +290,53 @@ Contributions are accepted under the [Contributor License Agreement](CLA.md), ma
 
 ## Upgrade Path
 
-Graph Loom is the portable, single-file entry point. For investigations requiring persistent storage, SQL queries, structured import pipelines with candidate review, and folder-based case management, the **Graph Loom Workstation** provides all of that as a local-first desktop application, same JSON format, direct import from any Graph Loom export.
+Graph Loom is the portable, single-file entry point. For investigations requiring persistent storage, SQL queries, structured import pipelines with candidate review, and folder-based case management, the **Graph Loom Workstation** provides all of that as a local-first desktop application — same JSON format, direct import from any Graph Loom export.
 
 Source: [https://github.com/CaptainQuasar/Graph_Loom](https://github.com/CaptainQuasar/Graph_Loom)
+
+---
+
+## Multi-Contributor Merging — Known Edge Cases
+
+These are documented limitations of the merge system. Three have been mitigated in the code; two are architectural and require workflow coordination.
+
+### Duplicate Alias Problem *(architectural — requires coordination)*
+
+Because `id` is the sole merge key, slight variations create separate disconnected nodes instead of triggering a conflict. If one contributor uses `acme_corp` and another uses `acme_llc` for the same entity, both will appear on the canvas as distinct nodes, splitting their respective links.
+
+**Mitigation:** Establish an **ID ledger** before starting a multi-contributor investigation — a shared list defining the exact `id` strings for primary targets. The ID ledger can be as simple as a shared note or spreadsheet column. Once a graph is in circulation, IDs must be treated as permanent.
+
+### Array Replacement vs. Concatenation *(mitigated)*
+
+In the conflict modal, the `events` (timeline) field offers three options:
+- **Current** — keep the existing timeline
+- **Incoming** — replace with the incoming timeline
+- **⊕ Merge both** — concatenates both arrays, deduplicates identical entries by year+text, and sorts chronologically
+
+Selecting "Merge both" preserves every distinct event from both contributors. The "Keep all current" and "Take all incoming" bulk actions in the modal footer do not set merge — they apply to all fields at once and cannot know which arrays the user wants combined. For events specifically, use the per-card radio.
+
+### Silent linkDetails Rejection *(mitigated)*
+
+Previously, any existing `linkDetails` entry — including blank or draft placeholders — would silently block an incoming fully-researched detail for the same connection. This has been fixed: an incoming detail now overwrites an existing entry only if the existing entry is a blank or draft (no meaningful content in `what`, `how`, `impact`, or `sources`). A fully-documented existing detail is still preserved.
+
+If you encounter a case where neither detail should be discarded, use **Edit → Link Details** to manually copy content between them before merging.
+
+### Link Type Fragmentation *(architectural — requires coordination)*
+
+Link type strings are free-text. `board_member` and `director` entered by different contributors will render as separate relationship types — different colours, separate filter entries, cluttered suggestion list.
+
+**Mitigation:** Agree on link type vocabulary before starting, using the built-in types as a baseline. Add any domain-specific types to the shared ID ledger alongside node IDs.
+
+---
+
+## Multi-Contributor Best Practices
+
+**Establish an ID ledger.** Before starting, create a shared list of exact `id` strings for all primary target nodes. This ensures nodes merge cleanly and conflicts trigger the modal when intended. A shared spreadsheet column, a `nodes.txt` file in a shared folder, or a Signal note all work.
+
+**Export a save state before every merge.** Use **Export → Download JSON** immediately before merging. If a conflict is resolved incorrectly or duplicate aliases flood the canvas, **Import & Replace** with the saved JSON restores the pre-merge state instantly.
+
+**Clear placeholder link details before importing.** If you know a contributor has researched a connection that you have only a blank card for, delete your placeholder via **Edit → Link Details → ✕ Clear Detail** before merging. The incoming researched detail will then import cleanly.
+
+**Divide by domain, not by entity.** Assign contributors distinct subgraphs, "User A maps the shell companies, User B maps the political donors" — rather than having multiple people research the same central nodes simultaneously. This minimises collisions on complex fields like descriptions and event timelines.
+
+**Use ⊕ Merge both for event timelines.** When both contributors have added distinct historical events to the same node, select "⊕ Merge both" in the conflict modal for the `events` field. The system will concatenate, deduplicate, and sort the combined timeline automatically.

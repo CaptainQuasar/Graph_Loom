@@ -1966,12 +1966,18 @@ function editorImportJSON() {
     label:  l.label || ''
   }));
 
+  // Replace link details in-place — was missing, causing silent data loss on import
+  Object.keys(LINK_DETAIL_MAP).forEach(k => delete LINK_DETAIL_MAP[k]);
+  Object.assign(LINK_DETAIL_MAP, data.linkDetails || {});
+
   rebuildGraphData();
   editorRefreshNodesList();
   editorRefreshLinkSelects();
   editorRefreshLinksList();
   document.getElementById('editor-import-text').value = '';
-  editorStatus(status, `✓ Imported ${nodes.length} nodes, ${links.length} links.`, 'ok');
+  const detailCount = Object.keys(data.linkDetails || {}).length;
+  editorStatus(status,
+    `✓ Imported ${nodes.length} nodes, ${links.length} links, ${detailCount} link details.`, 'ok');
 }
 
 // ── TOGGLE EDITOR MODAL ──────────────────────────────────────
@@ -2670,16 +2676,30 @@ function parseSourcesTextarea() {
 function editorRefreshDetailSelects() {
   const sorted = [...nodes].sort((a, b) => a.label.localeCompare(b.label));
   const opts   = sorted.map(n => `<option value="${escAttr(n.id)}">${escHtml(n.label)}</option>`).join('');
-  ['ed-src', 'ed-tgt'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = opts;
-  });
+  const srcEl  = document.getElementById('ed-src');
+  const tgtEl  = document.getElementById('ed-tgt');
+  if (srcEl) srcEl.innerHTML = opts;
+  if (tgtEl) {
+    tgtEl.innerHTML = opts;
+    // Default target to the SECOND node so src !== tgt on first open —
+    // prevents the silent early-return in editorLoadLinkDetail that left
+    // the form blank with no feedback.
+    if (sorted.length > 1) tgtEl.value = sorted[1].id;
+  }
 }
 
 function editorLoadLinkDetail() {
-  const src = document.getElementById('ed-src')?.value;
-  const tgt = document.getElementById('ed-tgt')?.value;
-  if (!src || !tgt || src === tgt) return;
+  const src    = document.getElementById('ed-src')?.value;
+  const tgt    = document.getElementById('ed-tgt')?.value;
+  const status = document.getElementById('editor-detail-status');
+  if (!src || !tgt) return;
+  if (src === tgt) {
+    if (status) {
+      status.textContent = 'Select two different nodes to load a connection detail.';
+      status.style.color = 'var(--text-dim)';
+    }
+    return;
+  }
   const det = LINK_DETAIL_MAP[src+'::'+tgt] || LINK_DETAIL_MAP[tgt+'::'+src] || {};
   document.getElementById('ed-what').value   = det.what   || '';
   document.getElementById('ed-how').value    = det.how    || '';

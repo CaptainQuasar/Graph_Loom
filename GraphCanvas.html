@@ -2292,16 +2292,20 @@ function _readConflictResolutions() {
 }
 
 function _setAllRadios(choice) {
+  // Explicitly set every radio — do NOT rely on browser auto-unchecking
+  // peers when checked = true is set programmatically inside a forEach loop.
+  // That propagation is unreliable across mobile browsers / WebView.
   document.querySelectorAll('.conflict-card input[type="radio"]').forEach(r => {
-    if (r.value === choice) r.checked = true;
+    r.checked = (r.value === choice);
   });
 }
 
 function _setCardRadios(cardId, choice) {
   const card = document.querySelector(`.conflict-card[data-conflict-id="${CSS.escape(cardId)}"]`);
   if (!card) return;
+  // Same fix: explicit assignment on every radio, not just the matching one.
   card.querySelectorAll('input[type="radio"]').forEach(r => {
-    if (r.value === choice) r.checked = true;
+    r.checked = (r.value === choice);
   });
 }
 

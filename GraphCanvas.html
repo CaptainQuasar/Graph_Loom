@@ -72,6 +72,17 @@ body::before {
 }
 #header-title:hover { outline: 1px dashed var(--border); outline-offset: 3px; }
 #header-title:focus { outline: 2px solid var(--accent); outline-offset: 3px; cursor: text; }
+
+#readonly-badge {
+  display: none; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; background: #1e3a5f; color: #c8d4e3;
+  padding: 3px 8px; border-radius: 3px; white-space: nowrap; flex-shrink: 0;
+}
+#integrity-badge {
+  display: none; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 8px; border-radius: 3px; white-space: nowrap; flex-shrink: 0;
+  border: 1px solid currentColor;
+}
 #header-title .subtitle { font-weight: 400; color: var(--text-dim); font-size: 0.78rem; margin-left: 8px; }
 
 /* ─── CATEGORY FILTER TABS ───────────────────── */
@@ -629,6 +640,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 <!-- HEADER -->
 <div id="header">
   <div id="header-title">Graph Canvas</div>
+  <span id="readonly-badge">📖 Read Only</span>
+  <span id="integrity-badge"></span>
   <div id="filter-bar">
     <button class="filter-btn active" data-cat="all">All</button>
     <!-- remaining buttons generated from CAT_META by buildFilterBar() -->
@@ -685,6 +698,14 @@ let graphTitle = 'Graph Canvas';
 // @@ENCRYPTED_START@@
 const ENCRYPTED_PAYLOAD = { salt: null, iv: null, ct: null };
 // @@ENCRYPTED_END@@
+
+// @@READONLY_START@@
+const GRAPH_READONLY = false;
+// @@READONLY_END@@
+
+// @@HASH_START@@
+const GRAPH_INTEGRITY_HASH = null;
+// @@HASH_END@@
 
 // Welcome modal — dismiss on button click; remember via sessionStorage
 document.getElementById('welcome-close-btn').addEventListener('click', () => {
@@ -2824,6 +2845,11 @@ async function downloadAsHTML() {
     /\/\/ @@ENCRYPTED_START@@[\s\S]*?\/\/ @@ENCRYPTED_END@@/,
     `// @@ENCRYPTED_START@@\nconst ENCRYPTED_PAYLOAD = { salt: null, iv: null, ct: null };\n// @@ENCRYPTED_END@@`
   );
+  // Always reset read-only on plain HTML downloads
+  source = source.replace(
+    /\/\/ @@READONLY_START@@[\s\S]*?\/\/ @@READONLY_END@@/,
+    `// @@READONLY_START@@\nconst GRAPH_READONLY = false;\n// @@READONLY_END@@`
+  );
 
   // Also replace graphTitle and document <title>
   const safeTitle = graphTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -2832,6 +2858,20 @@ async function downloadAsHTML() {
     `// @@GRAPH_TITLE_START@@\nlet graphTitle = ${JSON.stringify(graphTitle)};\n// @@GRAPH_TITLE_END@@`
   );
   source = source.replace(/<title>[^<]*<\/title>/, `<title>${safeTitle}</title>`);
+
+  // Bake integrity hash — every plain HTML download is tamper-evident
+  try {
+    const hash = await computeGraphHash();
+    source = source.replace(
+      /\/\/ @@HASH_START@@[\s\S]*?\/\/ @@HASH_END@@/,
+      `// @@HASH_START@@\nconst GRAPH_INTEGRITY_HASH = '${hash}';\n// @@HASH_END@@`
+    );
+  } catch(e) {
+    source = source.replace(
+      /\/\/ @@HASH_START@@[\s\S]*?\/\/ @@HASH_END@@/,
+      `// @@HASH_START@@\nconst GRAPH_INTEGRITY_HASH = null;\n// @@HASH_END@@`
+    );
+  }
 
   // 4. Validate: all three markers still present in result means replacements succeeded
   const nodesOk  = source.includes('@@NODES_START@@');
@@ -3000,13 +3040,130 @@ document.getElementById('password-reveal-copy').addEventListener('click', () => 
 // Wire encrypted download button
 document.getElementById('editor-download-encrypted-btn').addEventListener('click', downloadEncryptedHTML);
 
+// ── INTEGRITY HASH ────────────────────────────────────────────────
+// SHA-256 of a canonical (sorted, deterministic) serialisation of the
+// graph data. Sorted so the hash is identical regardless of insertion
+// order. Baked into every HTML and read-only download; recomputed on
+// open and compared to detect post-export tampering.
+async function computeGraphHash() {
+  const canonical = JSON.stringify({
+    nodes: [...nodes]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map(n => ({
+        id: n.id, label: n.label, cat: n.cat, r: n.r,
+        year: n.year, layer: n.layer, title: n.title,
+        desc: n.desc, events: n.events || []
+      })),
+    links: [...links]
+      .sort((a, b) => {
+        const sa = lid(a.source), ta = lid(a.target);
+        const sb = lid(b.source), tb = lid(b.target);
+        return (sa + '::' + ta).localeCompare(sb + '::' + tb);
+      })
+      .map(l => ({
+        source: lid(l.source), target: lid(l.target),
+        type: l.type, label: l.label
+      })),
+    linkDetails: Object.fromEntries(
+      Object.entries(LINK_DETAIL_MAP).sort(([a], [b]) => a.localeCompare(b))
+    )
+  });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function _showIntegrityResult(computedHash) {
+  const badge = document.getElementById('integrity-badge');
+  if (!badge) return;
+  if (computedHash === GRAPH_INTEGRITY_HASH) {
+    badge.textContent = '✓ Integrity verified';
+    badge.style.color = '#1a7a1a';
+    badge.style.display = '';
+  } else {
+    badge.textContent = '⚠ Data modified';
+    badge.style.color = '#c0392b';
+    badge.style.display = '';
+    // Prominent warning for tampered read-only files
+    showBanner('⚠ Graph hash mismatch — content may have been modified since export.', 'error');
+  }
+}
+
+// ── READ-ONLY EXPORT ──────────────────────────────────────────────
+// Produces a file where GRAPH_READONLY=true (edit button hidden) and
+// GRAPH_INTEGRITY_HASH is baked in. Tamper evident: if any node, link,
+// or detail is changed after download the hash check fails on open.
+async function downloadReadOnly() {
+  const btn    = document.getElementById('editor-download-readonly-btn');
+  const status = document.getElementById('editor-export-html-status');
+  if (btn) btn.disabled = true;
+  editorStatus(status, '⟳ Computing hash…', '');
+
+  try {
+    const hash = await computeGraphHash();
+
+    const nodesSerial = nodes.map(n => ({
+      id:n.id, label:n.label, cat:n.cat, r:n.r,
+      year:n.year, layer:n.layer, title:n.title, desc:n.desc, events:n.events||[]
+    }));
+    const linksSerial = links.map(l => ({
+      source:lid(l.source), target:lid(l.target), type:l.type, label:l.label
+    }));
+    const detailSerial = JSON.parse(JSON.stringify(LINK_DETAIL_MAP));
+
+    let source = _ORIGINAL_HTML_SNAPSHOT;
+    try { const r = await fetch(location.href); if (r.ok) source = await r.text(); } catch(e) {}
+
+    const nodesBlock  = `// @@NODES_START@@\nconst nodes =[\n${nodesSerial.map(n=>JSON.stringify(n)).join(',\n')}];\n// @@NODES_END@@`;
+    const linksBlock  = `// @@LINKS_START@@\nconst links =[\n${linksSerial.map(l=>JSON.stringify(l)).join(',\n')}];\n// @@LINKS_END@@`;
+    const detailBlock = `// @@DETAIL_START@@\nconst LINK_DETAIL_MAP = ${JSON.stringify(detailSerial, null, 1)};\n// @@DETAIL_END@@`;
+
+    source = source.replace(/\/\/ @@NODES_START@@[\s\S]*?\/\/ @@NODES_END@@/, nodesBlock);
+    source = source.replace(/\/\/ @@LINKS_START@@[\s\S]*?\/\/ @@LINKS_END@@/, linksBlock);
+    source = source.replace(/\/\/ @@DETAIL_START@@[\s\S]*?\/\/ @@DETAIL_END@@/, detailBlock);
+
+    // Bake title, reset encryption, set read-only, set hash
+    const safeTitle = graphTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    source = source.replace(/\/\/ @@GRAPH_TITLE_START@@[\s\S]*?\/\/ @@GRAPH_TITLE_END@@/,
+      `// @@GRAPH_TITLE_START@@\nlet graphTitle = ${JSON.stringify(graphTitle)};\n// @@GRAPH_TITLE_END@@`);
+    source = source.replace(/<title>[^<]*<\/title>/, `<title>${safeTitle}</title>`);
+    source = source.replace(/\/\/ @@ENCRYPTED_START@@[\s\S]*?\/\/ @@ENCRYPTED_END@@/,
+      `// @@ENCRYPTED_START@@\nconst ENCRYPTED_PAYLOAD = { salt: null, iv: null, ct: null };\n// @@ENCRYPTED_END@@`);
+    source = source.replace(/\/\/ @@READONLY_START@@[\s\S]*?\/\/ @@READONLY_END@@/,
+      `// @@READONLY_START@@\nconst GRAPH_READONLY = true;\n// @@READONLY_END@@`);
+    source = source.replace(/\/\/ @@HASH_START@@[\s\S]*?\/\/ @@HASH_END@@/,
+      `// @@HASH_START@@\nconst GRAPH_INTEGRITY_HASH = '${hash}';\n// @@HASH_END@@`);
+
+    // Validate all replacements
+    const ok = source.includes('@@NODES_START@@') && source.includes('@@LINKS_START@@') &&
+                source.includes('@@DETAIL_START@@') && source.includes('GRAPH_READONLY = true');
+    if (!ok) { editorStatus(status, '⚠ Replacement failed — use JSON export instead.', 'err'); return; }
+
+    const blob = new Blob([source], { type: 'text/html;charset=utf-8' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    const safe = graphTitle.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'graph';
+    a.download = `${safe}-readonly-${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 6000);
+    editorStatus(status,
+      `✓ Read-only export — ${nodes.length} nodes, hash: ${hash.slice(0,12)}…`, 'ok');
+  } catch(e) {
+    editorStatus(status, `⚠ Export failed: ${e.message}`, 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById('editor-download-readonly-btn')
+  .addEventListener('click', downloadReadOnly);
+
 // ── EXPOSE GLOBALS — only what inline HTML still calls directly ───────────────
 window.toggleEditor = toggleEditor;   // header button: onclick="toggleEditor()"
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Startup — gate on encryption state
 if (ENCRYPTED_PAYLOAD && ENCRYPTED_PAYLOAD.ct) {
-  // Encrypted file: hide welcome, show decrypt overlay
   document.getElementById('welcome-overlay').style.display = 'none';
   document.getElementById('decrypt-overlay').style.display = 'flex';
 } else {
@@ -3014,6 +3171,29 @@ if (ENCRYPTED_PAYLOAD && ENCRYPTED_PAYLOAD.ct) {
   _autosaveEnabled = true;
   buildFilterBar();
   checkAutosave();
+
+  // Read-only mode: hide edit button, show badge, disable inline title editing
+  if (GRAPH_READONLY) {
+    const editBtn = document.getElementById('editor-btn-in-header');
+    if (editBtn) editBtn.style.display = 'none';
+    const roBadge = document.getElementById('readonly-badge');
+    if (roBadge) roBadge.style.display = '';
+    // Prevent inline title editing in read-only files
+    const titleEl = document.getElementById('header-title');
+    if (titleEl) {
+      titleEl.style.cursor = 'default';
+      titleEl.title = 'Read-only — editing disabled';
+      titleEl.addEventListener('click', e => e.preventDefault(), true);
+    }
+  }
+
+  // Integrity check: if a hash was baked in, recompute and compare
+  if (GRAPH_INTEGRITY_HASH) {
+    computeGraphHash().then(_showIntegrityResult).catch(() => {
+      const badge = document.getElementById('integrity-badge');
+      if (badge) { badge.textContent = '? Hash error'; badge.style.color = 'var(--text-dim)'; badge.style.display = ''; }
+    });
+  }
 }
 
 }); // End DOMContentLoaded
@@ -3455,6 +3635,11 @@ if (ENCRYPTED_PAYLOAD && ENCRYPTED_PAYLOAD.ct) {
               <button class="editor-btn" id="editor-download-html-btn" style="background:#183b28">⬇ Download as HTML</button>
               <button class="editor-btn secondary" id="editor-download-svg-btn">⬇ Download SVG</button>
               <span class="editor-status" id="editor-export-html-status"></span>
+            </div>
+            <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+              <p class="editor-export-desc" style="font-weight:700;color:#1e3a5f;margin-bottom:4px">📖 Download Read-Only</p>
+              <p class="editor-export-desc">Recipients can explore and click nodes but cannot edit the graph. A SHA-256 integrity hash is baked in — if any data is changed after export the hash check fails visibly on open.</p>
+              <button class="editor-btn secondary" id="editor-download-readonly-btn" style="margin-top:6px;border-color:#1e3a5f;color:#1e3a5f">📖 Download Read-Only</button>
             </div>
             <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
               <p class="editor-export-desc" style="font-weight:700;color:var(--accent2);margin-bottom:4px">🔒 Download Encrypted HTML</p>

@@ -2709,7 +2709,6 @@ function editorLoadLinkDetail() {
     .map(s => (s.l && s.u) ? `${s.l} | ${s.u}` : (s.l || s.u))
     .join('\n');
   // Update count label to show if detail exists
-  const status = document.getElementById('editor-detail-status');
   const hasDetail = !!(LINK_DETAIL_MAP[src+'::'+tgt] || LINK_DETAIL_MAP[tgt+'::'+src]);
   if (status) {
     status.textContent = hasDetail
